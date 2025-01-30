@@ -3,11 +3,9 @@ Author: Hongjue Zhao
 Email:  hongjue2@illinois.edu
 Date:   01/29/2025
 '''
-
+from math import floor
 import torch, numpy as np, torchode as tode
 from torch import Tensor
-from scipy.linalg import solve_continuous_are, solve_discrete_are, solve
-from scipy.linalg import solve_continuous_lyapunov, solve_discrete_lyapunov
 
 from systems import CtrlAffSys
 from .._base_controller import Controller
@@ -35,7 +33,7 @@ def simulate_con_system(
     step_method = tode.Tsit5(term)
     step_size_controller = tode.IntegralController(atol=1e-6, rtol=1e-3, term=term)
     solver = tode.AutoDiffAdjoint(step_method, step_size_controller)
-    ts_eval = torch.broadcast_to(torch.arange(0, T + dt, dt), (batch_x0.shape[0], int(T/dt) + 1))
+    ts_eval = torch.stack([torch.arange(0, T + dt, dt) for _ in range(batch_x0.size(0))], dim = 0).to(batch_x0.device)
     problem = tode.InitialValueProblem(y0 = batch_x0, t_eval = ts_eval)
     sol = solver.solve(problem)
     return sol.ts, sol.ys

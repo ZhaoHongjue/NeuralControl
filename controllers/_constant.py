@@ -36,4 +36,4 @@ class ConstantController(Controller):
         Return:
         - `Tensor[batch_size * N_CONTROL]`: Control vectors.
         '''
-        return torch.broadcast_to(self.u, (x.shape[0],) + self.u.shape)
+        return torch.broadcast_to(self.u, (x.shape[0],) + self.u.shape).to(x.device)

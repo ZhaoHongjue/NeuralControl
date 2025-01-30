@@ -31,7 +31,7 @@ class LinearSatellite(CtrlAffSys):
         - `x` (`Tensor[batch_size * N_DIM]`): State vectors. 
         '''
         assert x.dim() == 2, 'Input must be a batch of states'
-        return x @ self.A.T
+        return x @ self.A.T.to(x.device)
     
     def _g(self, x: Tensor) -> Tensor:
         '''
@@ -41,7 +41,7 @@ class LinearSatellite(CtrlAffSys):
         - `x` (`Tensor[batch_size * N_DIM]`): State vectors.
         '''
         assert x.dim() == 2, 'Input must be a batch of states'
-        return torch.broadcast_to(self.B, (x.shape[0],) + self.B.shape)
+        return torch.broadcast_to(self.B, (x.shape[0],) + self.B.shape).to(x.device)
     
     @property
     def A(self) -> Tensor:
@@ -69,6 +69,9 @@ class LinearSatellite(CtrlAffSys):
     
     @property
     def control_limits(self) -> tuple[Tensor, Tensor]:
+        '''
+        Lower and upper limits of the control inputs.
+        '''
         upper_limit = torch.ones(self.n_control)
         lower_limit = -upper_limit
         return lower_limit, upper_limit

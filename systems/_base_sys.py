@@ -43,6 +43,25 @@ class CtrlAffSys(ABC):
         '''
         raise NotImplementedError
     
+    def get_f_ang_g(self, x: Tensor) -> tuple[Tensor, Tensor]:
+        '''
+        Get the dynamics of the system and the control matrix.
+        
+        Args:
+        - `x` (`Tensor[batch_size * N_DIM]` or `Tensor[batch_size * t_step * N_DIM]`): state vector
+        
+        Return:
+        - `Tuple[Tensor[batch_size * N_DIM], Tensor[batch_size * N_DIM * N_CONTROL]]`: f(x), g(x).
+        '''
+        if x.dim() == 2:
+            f, g = self._f(x), self._g(x)
+        elif x.dim() == 3:
+            f = torch.stack([self._f(xi) for xi in x]).to(x.device)
+            g = torch.stack([self._g(xi) for xi in x]).to(x.device)
+        else:
+            raise ValueError('Invalid input dimension')
+        return f, g
+    
     def closed_loop_dynamics(self, x: Tensor, u: Tensor) -> Tensor:
         '''
         Closed-loop dynamics of a satellite in orbit around the Earth.
@@ -84,6 +103,9 @@ class CtrlAffSys(ABC):
     
     @property
     def control_limits(self) -> tuple[Tensor, Tensor]:
+        '''
+        Lower and upper limits of the control inputs.
+        '''
         raise NotImplementedError
     
     @property

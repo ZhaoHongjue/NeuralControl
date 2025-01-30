@@ -19,7 +19,7 @@ class LQRController(Controller):
         dt: float = 0.1, 
         Q: Tensor = None,
         R: Tensor = None,
-        type: str = 'continuous',
+        sys_type: str = 'continuous',
         **kwargs
     ):
         super().__init__(dynamic, dt)
@@ -38,10 +38,10 @@ class LQRController(Controller):
             self.R = torch.eye(dynamic.n_control)
             
         # Assign K
-        if type == 'discrete':
+        if sys_type == 'discrete':
             A_d, B_d = discretize_AB(self.dynamic.A, self.dynamic.B, self.dynamic.dt)
             self.K = discrete_lqr(A_d, B_d, self.Q, self.R)
-        elif type == 'continuous':
+        elif sys_type == 'continuous':
             
             self.K = continuous_lqr(self.dynamic.A, self.dynamic.B, self.Q, self.R)
         else:
@@ -55,4 +55,4 @@ class LQRController(Controller):
         Return:
         - `Tensor[batch_size * N_CONTROL]`: Control vectors.
         '''
-        return -x @ self.K.T
+        return -x @ self.K.T.to(x.device)

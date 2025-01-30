@@ -30,4 +30,4 @@ class RandomController(Controller):
         Return:
         - `Tensor[batch_size * N_CONTROL]`: Control vectors.
         '''
-        return torch.rand(x.shape[0], self.dynamic.n_control)
+        return torch.rand(x.shape[0], self.dynamic.n_control).to(x.device)
