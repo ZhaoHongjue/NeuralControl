@@ -42,7 +42,7 @@ class LQRController(Controller):
             self.K = discrete_lqr(self.dynamic.A, self.dynamic.B, self.Q, self.R)
         elif type == 'continuous':
             A_d, B_d = discretize_AB(self.dynamic.A, self.dynamic.B, self.dynamic.dt)
-            self.K = continuous_lqr(self.dynamic.A, self.dynamic.B, self.Q, self.R)
+            self.K = continuous_lqr(A_d, B_d, self.Q, self.R)
         else:
             raise ValueError('Type must be either discrete or continuous')
         
