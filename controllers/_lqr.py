@@ -19,7 +19,7 @@ class LQRController(Controller):
         dt: float = 0.1, 
         Q: Tensor = None,
         R: Tensor = None,
-        type: str = 'discrete',
+        type: str = 'continuous',
         **kwargs
     ):
         super().__init__(dynamic, dt)
@@ -39,10 +39,11 @@ class LQRController(Controller):
             
         # Assign K
         if type == 'discrete':
-            self.K = discrete_lqr(self.dynamic.A, self.dynamic.B, self.Q, self.R)
-        elif type == 'continuous':
             A_d, B_d = discretize_AB(self.dynamic.A, self.dynamic.B, self.dynamic.dt)
-            self.K = continuous_lqr(A_d, B_d, self.Q, self.R)
+            self.K = discrete_lqr(A_d, B_d, self.Q, self.R)
+        elif type == 'continuous':
+            
+            self.K = continuous_lqr(self.dynamic.A, self.dynamic.B, self.Q, self.R)
         else:
             raise ValueError('Type must be either discrete or continuous')
         
