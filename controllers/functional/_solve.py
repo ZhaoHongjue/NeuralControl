@@ -9,6 +9,9 @@ from torch import Tensor
 from scipy.linalg import solve_continuous_are, solve_discrete_are, solve
 from scipy.linalg import solve_continuous_lyapunov, solve_discrete_lyapunov
 
+from systems import CtrlAffSys
+from .._base_controller import Controller
+from ._utils import discretize_AB
 
 def continuous_lqr(A: Tensor, B: Tensor, Q: Tensor, R: Tensor) -> Tensor:
     '''
@@ -34,7 +37,7 @@ def discrete_lqr(A: Tensor, B: Tensor, Q: Tensor, R: Tensor) -> Tensor:
     return torch.tensor(solve(R + B.T @ P @ B, B.T @ P @ A), dtype = torch.float32)
 
 
-def continuous_lin_lyapunov(A: Tensor, Q: Tensor = None) -> Tensor:
+def continuous_lin_lyapunov_p(A: Tensor, Q: Tensor = None) -> Tensor:
     '''
     Reference:
     '''
@@ -45,7 +48,7 @@ def continuous_lin_lyapunov(A: Tensor, Q: Tensor = None) -> Tensor:
     return torch.tensor(P, dtype = torch.float32)
 
 
-def discrete_lin_lyapunov(A: Tensor, Q: Tensor) -> Tensor:
+def discrete_lin_lyapunov_p(A: Tensor, Q: Tensor) -> Tensor:
     '''
     Reference:
     '''
@@ -53,3 +56,24 @@ def discrete_lin_lyapunov(A: Tensor, Q: Tensor) -> Tensor:
     Q = Q.cpu().detach().numpy()
     P = solve_discrete_lyapunov(A, -Q)
     return torch.tensor(P, dtype = torch.float32)
+
+
+def compute_sys_lyapunov_p(
+    dynamic: CtrlAffSys,
+    controller: Controller,
+    sys_type: str = 'continuous'
+):
+    if type(controller).__name__ == 'LQRController':
+        A_closed = dynamic.A - dynamic.B @ controller.K
+        Q = controller.Q
+    else:
+        A_closed = dynamic.A
+        Q = torch.eye(dynamic.n_dim)
+    
+    if sys_type == 'continuous':
+        return continuous_lin_lyapunov_p(A_closed, Q)
+    elif sys_type == 'discrete':
+        A_d, _ = discretize_AB(dynamic.A, dynamic.B, dynamic.dt)
+        return discrete_lin_lyapunov_p(A_d, Q)
+    else:
+        raise ValueError('Type must be either continuous or discrete')
