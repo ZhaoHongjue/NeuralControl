@@ -1,5 +1,9 @@
 '''
+Author: Hongjue Zhao
+Email:  hongjue2@illinois.edu
+Date:   01/29/2025
 
+Reference: https://github.com/MIT-REALM/neural_clbf/blob/main/neural_clbf/controllers/clf_controller.py
 '''
 
 import torch, numpy as np, matplotlib.pyplot as plt

@@ -1,7 +1,7 @@
 '''
-Author:     Hongjue Zhao
-Email:      hongjue2@illinois.edu
-Date:       01/29/2025
+Author: Hongjue Zhao
+Email:  hongjue2@illinois.edu
+Date:   01/29/2025
 '''
 
 import torch

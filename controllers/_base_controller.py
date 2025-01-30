@@ -1,7 +1,7 @@
 '''
-Author:     Hongjue Zhao
-Email:      hongjue2@illinois.edu
-Date:       12/29/2024
+Author: Hongjue Zhao
+Email:  hongjue2@illinois.edu
+Date:   12/29/2024
 '''
 
 from abc import ABC, abstractmethod
