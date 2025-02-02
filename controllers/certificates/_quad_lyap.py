@@ -35,27 +35,15 @@ class QuadLyapunov(Certificate):
         else:
             assert P.shape == (dynamic.n_dim, dynamic.n_dim), 'P must be a square matrix'
             self.P = P
+            
+    def _value(self, x: Tensor) -> Tensor:
+        return x @ self.P.to(x.device) @ x
     
-    def __call__(self, x: Tensor) -> Tensor:
-        '''
-        Compute the value of the Lyapunov function and its Jacobian
-        
-        Args:
-        - `x` (`Tensor[batch_size * N_DIM]`): state vector
-        
-        Returns:
-        - `v_values` (`Tensor[batch_size * 1]`): value of the Lyapunov function
-        '''
-        return torch.einsum('bi, ij, bj -> b', x, self.P.to(x.device), x).unsqueeze(-1)
-    
-    def compute_jacobian(
-        self, x: Tensor, 
-        create_graph: bool = False
-    ) -> Tensor:
+    def compute_jacobian(self, xs: Tensor) -> Tensor:
         '''
         Compute the Jacobian of the Lyapunov function
         
         Args:
         - `x` (`Tensor[batch_size * N_DIM]`): state vector
         '''
-        return torch.einsum('bi, ij -> bj', x, self.P.to(x.device) + self.P.T.to(x.device))
+        return torch.einsum('bi, ij -> bj', xs, self.P.to(xs.device) + self.P.T.to(xs.device))

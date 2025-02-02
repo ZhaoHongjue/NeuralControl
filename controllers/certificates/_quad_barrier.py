@@ -25,26 +25,14 @@ class QuadBarrier(Certificate):
         super().__init__(dynamic, controller, **kwargs)
         self.P = torch.eye(dynamic.n_dim)
     
-    def __call__(self, x: Tensor) -> Tensor:
-        '''
-        Compute the value of the Lyapunov function and its Jacobian
-        
-        Args:
-        - `x` (`Tensor[batch_size * N_DIM]`): state vector
-        
-        Returns:
-        - `v_values` (`Tensor[batch_size * 1]`): value of the Lyapunov function
-        '''
-        return torch.einsum('bi, ij, bj -> b', x, self.P.to(x.device), x).unsqueeze(-1)
+    def _value(self, x: Tensor) -> Tensor:
+        return x @ self.P.to(x.device) @ x
     
-    def compute_jacobian(
-        self, x: Tensor, 
-        create_graph: bool = False
-    ) -> Tensor:
+    def compute_jacobian(self, xs: Tensor) -> Tensor:
         '''
         Compute the Jacobian of the Lyapunov function
         
         Args:
         - `x` (`Tensor[batch_size * N_DIM]`): state vector
         '''
-        return torch.einsum('bi, ij -> bj', x, self.P.to(x.device) + self.P.T.to(x.device))
+        return torch.einsum('bi, ij -> bj', xs, self.P.to(xs.device) + self.P.T.to(xs.device))

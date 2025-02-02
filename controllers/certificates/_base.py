@@ -10,7 +10,6 @@ from abc import ABC, abstractmethod
 
 import torch
 from torch import Tensor
-from torch.autograd.functional import jacobian
 
 from systems import CtrlAffSys
 from .. import Controller, ConstantController
@@ -29,25 +28,33 @@ class Certificate(ABC):
         else:
             self.controller = controller
     
+    def __call__(self, xs: Tensor) -> Tensor:
+        return torch.vmap(self._value)(xs).unsqueeze(-1)
+    
+    
     @abstractmethod
-    def __call__(self, x: Tensor) -> Tensor:
+    def _value(self, x: Tensor) -> Tensor:
+        '''
+        Compute the value of the Lyapunov function
+        
+        Args:
+        - `x` (`Tensor[N_DIM]`): state vector
+        
+        Returns:
+        - `v` (`Tensor[1]`): value of the Lyapunov function
+        '''
         raise NotImplementedError
     
-    def compute_jacobian(
-        self, 
-        x: Tensor, 
-        create_graph: bool = False
-    ) -> Tensor:
+    
+    def compute_jacobian(self, xs: Tensor) -> Tensor:
         '''
         Compute the Jacobian of the Lyapunov function
         
         Args:
         - `x` (`Tensor[batch_size * N_DIM]`): state vector
         '''
-        return torch.cat([
-            jacobian(self, x_i, create_graph = create_graph).reshape(1, -1)
-            for x_i in x.unsqueeze(1)
-        ], dim = 0)
+        return torch.vmap(torch.func.grad(self._value))(xs)
+        
         
     def compute_lie_deriv(self, x: Tensor) -> Tensor:
         '''
