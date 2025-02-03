@@ -12,5 +12,9 @@ from .. import Controller
 from ._nn_certificate import NNCertificate
 
 class NNBarrier(NNCertificate):
+    @property
+    def certif_type(self) -> str:
+        return 'barrier'
+    
     def compute_loss(self, xs: Tensor) -> Tensor:
         return 0

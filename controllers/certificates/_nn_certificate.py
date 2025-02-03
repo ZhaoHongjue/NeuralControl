@@ -37,6 +37,10 @@ class NNCertificate(nn.Module, Certificate):
     def forward(self, xs: Tensor) -> Tensor:
         return self.dnn(xs)
     
+    @property
+    def certif_type(self) -> str:
+        raise NotImplementedError
+    
     @abstractmethod
     def compute_loss(self, xs: Tensor) -> Tensor:
         '''

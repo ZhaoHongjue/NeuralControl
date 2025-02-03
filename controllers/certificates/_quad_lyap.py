@@ -36,6 +36,10 @@ class QuadLyapunov(Certificate):
             assert P.shape == (dynamic.n_dim, dynamic.n_dim), 'P must be a square matrix'
             self.P = P
             
+    @property
+    def certif_type(self) -> str:
+        return 'lyapunov'
+            
     def _value(self, x: Tensor) -> Tensor:
         return x @ self.P.to(x.device) @ x
     

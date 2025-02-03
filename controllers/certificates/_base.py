@@ -31,6 +31,9 @@ class Certificate(ABC):
     def __call__(self, xs: Tensor) -> Tensor:
         return torch.vmap(self._value)(xs).unsqueeze(-1)
     
+    @property
+    def certif_type(self) -> str:
+        raise NotImplementedError
     
     @abstractmethod
     def _value(self, x: Tensor) -> Tensor:

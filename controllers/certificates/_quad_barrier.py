@@ -25,6 +25,10 @@ class QuadBarrier(Certificate):
         super().__init__(dynamic, controller, **kwargs)
         self.P = torch.eye(dynamic.n_dim)
     
+    @property
+    def certif_type(self) -> str:
+        return 'barrier'
+    
     def _value(self, x: Tensor) -> Tensor:
         return x @ self.P.to(x.device) @ x
     
