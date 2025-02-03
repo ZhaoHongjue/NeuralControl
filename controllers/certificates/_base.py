@@ -11,6 +11,9 @@ from abc import ABC, abstractmethod
 import torch
 from torch import Tensor
 
+import cvxpy as cp
+from cvxpylayers.torch import CvxpyLayer
+
 from systems import CtrlAffSys
 from .. import Controller, ConstantController
 
@@ -19,14 +22,18 @@ class Certificate(ABC):
     def __init__(
         self,
         dynamic: CtrlAffSys,
-        controller: Controller = None,
+        nominal_controller: Controller = None,
+        lamb: float = 1.0,
+        r_penalty: float = 1.0,
         **kwargs,
     ) -> None:
         self.dynamic = dynamic
-        if controller is None:
-            self.controller = ConstantController(dynamic, dt = dynamic.dt)
+        if nominal_controller is None:
+            self.nominal_controller = ConstantController(dynamic, dt = dynamic.dt)
         else:
-            self.controller = controller
+            self.nominal_controller = nominal_controller
+        self.lamb, self.r_penalty = lamb, r_penalty
+        self.qp_solver = self.init_qp_solver()
     
     def __call__(self, xs: Tensor) -> Tensor:
         return torch.vmap(self._value)(xs).unsqueeze(-1)
@@ -61,7 +68,7 @@ class Certificate(ABC):
         
     def compute_lie_deriv(self, x: Tensor) -> Tensor:
         '''
-        Compute the Lie derivative of the Lyapunov function
+        Compute the Lie derivative of the certificate function
         
         Args:
         - `x` (`Tensor[batch_size * N_DIM]`): state vector
@@ -71,4 +78,60 @@ class Certificate(ABC):
         Lf_v = torch.einsum('bi, bi -> b', f, v_jacob).unsqueeze(-1)
         Lg_v = torch.einsum('bij, bi -> bj', g, v_jacob)
         return Lf_v, Lg_v
+    
+    def init_qp_solver(self):
+        '''
+        Initialize the QP solver
         
+        Returns:
+        - `CvxpyLayer`: QP solver'''
+        u = cp.Variable(self.dynamic.n_control)
+        relaxation = cp.Variable(1, nonneg = True)
+        V_param = cp.Parameter(1, nonneg = True)
+        Lf_V_param = cp.Parameter(1)
+        Lg_V_param = cp.Parameter(self.dynamic.n_control)
+        r_penalty_param = cp.Parameter(1, nonneg = True)
+        u_ref_param = cp.Parameter(self.dynamic.n_control)
+        constraint_expr = Lf_V_param + Lg_V_param.T @ u + self.lamb * V_param - relaxation
+        
+        if self.certif_type == 'lyapunov':
+            constraints = [constraint_expr <= 0]
+        elif self.certif_type == 'barrier':
+            constraints = [constraint_expr >= 0]
+        else:
+            raise ValueError('Unknown certificate type')
+            
+        # lower_limits, upper_limits = self.dynamic.control_limits
+        # for i in range(self.dynamic.n_control):
+        #     constraints.append(u[i] >= lower_limits[i])
+        #     constraints.append(u[i] <= upper_limits[i])
+
+        obj_expr = cp.sum_squares(u - u_ref_param) + cp.multiply(r_penalty_param, relaxation)
+        obj = cp.Minimize(obj_expr)
+
+        problem = cp.Problem(obj, constraints)
+        assert problem.is_dpp(), 'Problem is not DPP'
+        varaibles = [u, relaxation]
+        parameters = [V_param, Lf_V_param, Lg_V_param, r_penalty_param, u_ref_param]
+        return CvxpyLayer(problem, parameters, varaibles)
+    
+    def _solve_qp_cvxplayers(self, xs: Tensor) -> Tensor:
+        '''
+        Solve the QP for the CLF controller
+        
+        Args:
+        - `x` (`Tensor[batch_size * N_DIM]`): state vector
+        
+        Returns:
+        - `Tensor[batch_size * N_CONTROL]`: control vector
+        - `Tensor[batch_size * 1]`: relaxation variable
+        '''
+        v_values = self(xs)
+        Lf_v, Lg_v = self.compute_lie_deriv(xs)
+        r_penalty = self.r_penalty * torch.ones(xs.size(0), 1).to(xs.device)
+        us_ref = self.nominal_controller(xs)
+        params = [v_values, Lf_v, Lg_v, r_penalty, us_ref]
+        return self.qp_solver(*params, solver_args = {'max_iters': 1000},)
+    
+    def get_relaxation(self, x: Tensor) -> Tensor:
+        return self._solve_qp_cvxplayers(x)[1]

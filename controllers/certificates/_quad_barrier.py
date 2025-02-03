@@ -20,9 +20,11 @@ class QuadBarrier(Certificate):
         self, 
         dynamic: CtrlAffSys, 
         controller: Controller = None,
+        lamb: float = 1.0,
+        r_penalty: float = 1.0,
         **kwargs
     ):
-        super().__init__(dynamic, controller, **kwargs)
+        super().__init__(dynamic, controller, lamb, r_penalty, **kwargs)
         self.P = torch.eye(dynamic.n_dim)
     
     @property

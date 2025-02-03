@@ -22,10 +22,12 @@ class QuadLyapunov(Certificate):
         self, 
         dynamic: CtrlAffSys, 
         controller: Controller = None,
+        lamb: float = 1.0,
+        r_penalty: float = 1.0,
         P: Tensor = None,
         **kwargs
     ):
-        super().__init__(dynamic, controller, **kwargs)
+        super().__init__(dynamic, controller, lamb, r_penalty, **kwargs)
         if P is None:
             with catch_warnings(record = True) as w:
                 self.P = F.compute_sys_lyapunov_p(dynamic, controller)

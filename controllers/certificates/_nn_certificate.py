@@ -20,6 +20,8 @@ class NNCertificate(nn.Module, Certificate):
         self,
         dynamic: CtrlAffSys,
         controller: Controller = None,
+        lamb: float = 1.0,
+        r_penalty: float = 1.0,
         nn_type: str = 'MLP',
         nn_kwargs: dict = {
             'hidden_size': 32,
@@ -27,12 +29,13 @@ class NNCertificate(nn.Module, Certificate):
         },
         **kwargs,
     ) -> None:
-        Certificate.__init__(self, dynamic, controller)
         nn.Module.__init__(self)
+        Certificate.__init__(self, dynamic, controller, lamb, r_penalty, **kwargs)
         if nn_type == 'MLP':
             self.dnn = MLP(dynamic.n_dim, **nn_kwargs)
         else:
             raise ValueError(f'NN type {nn_type} not supported')
+        self.qp_solver = self.init_qp_solver()
     
     def forward(self, xs: Tensor) -> Tensor:
         return self.dnn(xs)
@@ -62,4 +65,3 @@ class NNCertificate(nn.Module, Certificate):
         - `v` (`Tensor[1]`): value of the Lyapunov function
         '''
         return self.dnn(x).squeeze(-1)
-        
