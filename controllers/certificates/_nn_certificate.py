@@ -10,6 +10,7 @@ import torch
 from torch import nn, Tensor
 
 from systems import CtrlAffSys
+from utils import init_nn_weights
 from models import *
 from .. import Controller
 from ._base import Certificate
@@ -19,7 +20,7 @@ class NNCertificate(nn.Module, Certificate):
     def __init__(
         self,
         dynamic: CtrlAffSys,
-        controller: Controller = None,
+        nominal_controller: Controller = None,
         lamb: float = 1.0,
         r_penalty: float = 1.0,
         nn_type: str = 'MLP',
@@ -30,9 +31,10 @@ class NNCertificate(nn.Module, Certificate):
         **kwargs,
     ) -> None:
         nn.Module.__init__(self)
-        Certificate.__init__(self, dynamic, controller, lamb, r_penalty, **kwargs)
+        Certificate.__init__(self, dynamic, nominal_controller, lamb, r_penalty, **kwargs)
         if nn_type == 'MLP':
             self.dnn = MLP(dynamic.n_dim, **nn_kwargs)
+            init_nn_weights(self.dnn)
         else:
             raise ValueError(f'NN type {nn_type} not supported')
         self.qp_solver = self.init_qp_solver()

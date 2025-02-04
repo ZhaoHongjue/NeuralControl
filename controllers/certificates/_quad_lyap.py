@@ -21,16 +21,16 @@ class QuadLyapunov(Certificate):
     def __init__(
         self, 
         dynamic: CtrlAffSys, 
-        controller: Controller = None,
+        nominal_controller: Controller = None,
         lamb: float = 1.0,
         r_penalty: float = 1.0,
         P: Tensor = None,
         **kwargs
     ):
-        super().__init__(dynamic, controller, lamb, r_penalty, **kwargs)
+        super().__init__(dynamic, nominal_controller, lamb, r_penalty, **kwargs)
         if P is None:
             with catch_warnings(record = True) as w:
-                self.P = F.compute_sys_lyapunov_p(dynamic, controller)
+                self.P = F.compute_sys_lyapunov_p(dynamic, nominal_controller)
                 if w: 
                     print('Cannot compute the Lyapunov matrix, using the identity matrix instead')
                     self.P = torch.eye(dynamic.n_dim)
