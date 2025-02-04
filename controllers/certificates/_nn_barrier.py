@@ -48,8 +48,8 @@ class NNBarrier(NNCertificate):
         eps = 1e-2
         v_values = self(xs)
         
-        safe_violation_loss = 100 * F.relu(eps + v_values[safe_mask]).mean()
-        unsafe_violation_loss = 100 * F.relu(eps - v_values[unsafe_mask]).mean()
+        safe_violation_loss = 100 * F.relu(eps - v_values[safe_mask]).mean()
+        unsafe_violation_loss = 100 * F.relu(eps + v_values[unsafe_mask]).mean()
         
         return safe_violation_loss, unsafe_violation_loss
         
