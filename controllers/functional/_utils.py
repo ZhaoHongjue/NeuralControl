@@ -29,7 +29,8 @@ def discretize_AB(
 
 def normalize(
     x: Tensor, 
-    state_limits: tuple[Tensor, Tensor]
+    state_limits: tuple[Tensor, Tensor],
+    scale: float = 1.0
 ) -> Tensor:
     '''
     Reference: https://github.com/MIT-REALM/neural_clbf/blob/main/neural_clbf/controllers/controller_utils.py#L29
@@ -37,4 +38,5 @@ def normalize(
     lower, upper = state_limits
     center = (lower + upper) / 2
     range = (upper - lower) / 2
-    return (x - center) / range
+    range /= scale
+    return (x - center.to(x.device)) / range.to(x.device)

@@ -92,7 +92,7 @@ class Certificate(ABC):
         Lg_V_param = cp.Parameter(self.dynamic.n_control)
         r_penalty_param = cp.Parameter(1, nonneg = True)
         u_ref_param = cp.Parameter(self.dynamic.n_control)
-        constraint_expr = Lf_V_param + Lg_V_param.T @ u + self.lamb * V_param - relaxation
+        constraint_expr = Lf_V_param + Lg_V_param @ u + self.lamb * V_param - relaxation
         
         if self.certif_type == 'lyapunov':
             constraints = [constraint_expr <= 0]
@@ -106,7 +106,7 @@ class Certificate(ABC):
         #     constraints.append(u[i] >= lower_limits[i])
         #     constraints.append(u[i] <= upper_limits[i])
 
-        obj_expr = cp.sum_squares(u - u_ref_param) + cp.multiply(r_penalty_param, relaxation)
+        obj_expr = cp.norm(u - u_ref_param)**2 + cp.multiply(r_penalty_param, relaxation)
         obj = cp.Minimize(obj_expr)
 
         problem = cp.Problem(obj, constraints)

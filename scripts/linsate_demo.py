@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, time
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
@@ -9,6 +9,7 @@ from lightning.fabric import Fabric
 from systems import *
 from controllers import *
 from controllers.certificates import *
+import controllers.functional as cF
 import utils
 
 utils.init_seed(0)
@@ -35,15 +36,14 @@ if __name__ == '__main__':
     
     # Generate Data
     dynamic = LinearSatellite()
-    n_samples, goal_ratio, safe_ratio = int(1e5), 0.4, 0.2
+    n_samples, safe_ratio, unsafe_ratio = int(1e5), 0.5, 0.5
 
-    print('Generating Goal Data...')
-    goal_x = dynamic.sample_with_mask(int(n_samples * goal_ratio), type = 'goal') 
     print('Generating Safe Data...')
     safe_x = dynamic.sample_with_mask(int(n_samples * safe_ratio), type = 'safe')
+    print('Generating Goal Data...')
+    unsafe_x = dynamic.sample_with_mask(int(n_samples * unsafe_ratio), type = 'unsafe') 
     print('Generating Free Data...')
-    free_x = dynamic.sample_state_space(n_samples - goal_x.shape[0] - safe_x.shape[0])
-    data_x = torch.cat([goal_x, safe_x, free_x], dim = 0)
+    data_x = torch.cat([safe_x, unsafe_x], dim = 0)
 
     random_indices = torch.randperm(data_x.shape[0])
     split_idx = int(0.8 * data_x.shape[0])
@@ -56,7 +56,7 @@ if __name__ == '__main__':
             dynamic.get_mask(train_x, 'goal'),
             dynamic.get_mask(train_x, 'safe'),
             dynamic.get_mask(train_x, 'unsafe'),
-        ), batch_size = 5120, shuffle = True
+        ), batch_size = 10240, shuffle = True
     )
 
     val_iter = DataLoader(
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             dynamic.get_mask(val_x, 'goal'),
             dynamic.get_mask(val_x, 'safe'),
             dynamic.get_mask(val_x, 'unsafe'),
-        ), batch_size = 5120
+        ), batch_size = 10240
     )
     
     nominal_controller = LQRController(dynamic)
@@ -85,6 +85,8 @@ if __name__ == '__main__':
     for epoch in range(200):
         for batch_idx, batch in enumerate(train_iter):
             x, goal_mask, safe_mask, unsafe_mask = batch
+            x = cF.normalize(x, dynamic.state_limits)
+            start = time.time()
             opt.zero_grad()
             safe_violation_loss, unsafe_violation_loss = nn_barrier.compute_violation_loss(x, goal_mask, safe_mask, unsafe_mask)
             if epoch < 100:
@@ -95,11 +97,13 @@ if __name__ == '__main__':
                 loss = safe_violation_loss + unsafe_violation_loss + relaxation_loss
             fabric.backward(loss)
             opt.step()
-            print(f'Epoch {epoch}, batch_idx {batch_idx} | Train Loss: {loss.item():.3e}, Safe Loss: {safe_violation_loss.item():.3e}, Unsafe Loss: {unsafe_violation_loss.item():.3e}, Relaxation Loss: {relaxation_loss.item():.3e}')
+            finish = time.time()
+            print(f'Epoch {epoch:3} | batch_idx {batch_idx:2}, Train Loss: {loss.item():.3e}, Safe Loss: {safe_violation_loss.item():.3e}, Unsafe Loss: {unsafe_violation_loss.item():.3e}, Relaxation Loss: {relaxation_loss.item():.3e}, Time: {finish - start:.3f}')
 
-        val_loss = 0
+        val_loss, val_safe_violation_loss, val_unsafe_violation_loss, val_relaxation_loss = 0, 0, 0, 0
         with torch.no_grad():
             for x, goal_mask, safe_mask, unsafe_mask in val_iter:
+                x = cF.normalize(x, dynamic.state_limits)
                 safe_violation_loss, unsafe_violation_loss = nn_barrier.compute_violation_loss(x, goal_mask, safe_mask, unsafe_mask)
                 if epoch < 100:
                     relaxation_loss = torch.tensor(0.0)
@@ -108,7 +112,11 @@ if __name__ == '__main__':
                     relaxation_loss = nn_barrier.compute_relaxation_loss(x)
                     loss = safe_violation_loss + unsafe_violation_loss + relaxation_loss
                 val_loss += loss.item()
-        print(f'Epoch {epoch} | Val Loss: {val_loss / len(val_iter)}')
+                val_safe_violation_loss += safe_violation_loss.item()
+                val_unsafe_violation_loss += unsafe_violation_loss.item()
+                val_relaxation_loss += relaxation_loss.item()
+        print('-' * 150)
+        print(f'Epoch {epoch:3} | Val Loss: {val_loss / len(val_iter):.3e}, Safe Loss: {val_safe_violation_loss / len(val_iter):.3e}, Unsafe Loss: {val_unsafe_violation_loss / len(val_iter):.3e}, Relaxation Loss: {val_relaxation_loss / len(val_iter):.3e}')
         
         save_checkpoint(nn_barrier, opt, epoch, f'{ckpt_pth}/linsate_demo-epoch{epoch}.pth')
-        print('-' * 100)
+        print('=' * 150)
