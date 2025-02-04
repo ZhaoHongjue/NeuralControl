@@ -127,7 +127,8 @@ class CtrlAffSys(ABC):
     
     def sample_with_mask(self, n_samples: int, type: str = 'safe'):
         x = self.sample_state_space(n_samples)
-        while True:
+        for _ in range(int(1e5)):
             violation = ~self.get_mask(x, type)
-            if violation.sum() == 0: return x
+            if violation.sum() == 0: break
             x[violation] = self.sample_state_space(violation.sum().item())
+        return x
