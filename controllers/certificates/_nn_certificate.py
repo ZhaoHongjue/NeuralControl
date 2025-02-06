@@ -27,6 +27,7 @@ class NNCertificate(nn.Module, Certificate):
         nn_kwargs: dict = {
             'hidden_size': 32,
             'layer_num': 2,
+            'activation': 'ReLU',
         },
         **kwargs,
     ) -> None:
