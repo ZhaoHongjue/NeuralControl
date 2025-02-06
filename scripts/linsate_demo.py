@@ -9,14 +9,13 @@ from lightning.fabric import Fabric
 from systems import *
 from controllers import *
 from controllers.certificates import *
-import controllers.functional as cF
 from utils import save_checkpoint, init_seed
 
 
 if __name__ == '__main__':
     init_seed(1)
     
-    ckpt_pth = './outputs2'
+    ckpt_pth = './outputs'
     if not os.path.exists(ckpt_pth):
         os.makedirs(ckpt_pth)
     
@@ -42,7 +41,7 @@ if __name__ == '__main__':
             dynamic.get_mask(train_x, 'goal'),
             dynamic.get_mask(train_x, 'safe'),
             dynamic.get_mask(train_x, 'unsafe'),
-        ), batch_size = 10240, shuffle = True
+        ), batch_size = 20000, shuffle = True
     )
 
     val_iter = DataLoader(
@@ -51,18 +50,18 @@ if __name__ == '__main__':
             dynamic.get_mask(val_x, 'goal'),
             dynamic.get_mask(val_x, 'safe'),
             dynamic.get_mask(val_x, 'unsafe'),
-        ), batch_size = 10240
+        ), batch_size = 20000
     )
     
     nominal_controller = LQRController(dynamic)
     nn_barrier = NNBarrier(
         dynamic, nominal_controller,
         lamb = 0.1, r_penalty = 1e4, nn_type = 'MLP',
-        nn_kwargs = {'hidden_size': 256, 'n_hidden': 2}
+        nn_kwargs = {'hidden_size': 256, 'n_hidden': 2, 'activation': 'ReLU',}
     )
-    opt: torch.optim.Optimizer = torch.optim.Adam(nn_barrier.parameters(), lr = 1e-4)
+    opt: torch.optim.Optimizer = torch.optim.Adam(nn_barrier.parameters(), lr = 1e-3)
 
-    fabric = Fabric(accelerator = 'cuda', devices = [0,])
+    fabric = Fabric(accelerator = 'cuda', devices = [2,3])
     fabric.launch()
     model, opt = fabric.setup(nn_barrier, opt)
     train_iter, val_iter = fabric.setup_dataloaders(train_iter, val_iter)
