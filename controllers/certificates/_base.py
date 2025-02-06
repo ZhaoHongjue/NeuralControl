@@ -92,12 +92,12 @@ class Certificate(ABC):
         Lg_V_param = cp.Parameter(self.dynamic.n_control)
         r_penalty_param = cp.Parameter(1, nonneg = True)
         u_ref_param = cp.Parameter(self.dynamic.n_control)
-        constraint_expr = Lf_V_param + Lg_V_param @ u + self.lamb * V_param - relaxation
+        certificate_cond = Lf_V_param + Lg_V_param @ u + self.lamb * V_param
         
         if self.certif_type == 'lyapunov':
-            constraints = [constraint_expr <= 0]
+            constraints = [certificate_cond <= relaxation]
         elif self.certif_type == 'barrier':
-            constraints = [constraint_expr >= 0]
+            constraints = [certificate_cond >= -relaxation]
         else:
             raise ValueError('Unknown certificate type')
             
@@ -131,7 +131,7 @@ class Certificate(ABC):
         r_penalty = self.r_penalty * torch.ones(xs.size(0), 1).to(xs.device)
         us_ref = self.nominal_controller(xs)
         params = [v_values, Lf_v, Lg_v, r_penalty, us_ref]
-        return self.qp_solver(*params) # , solver_args = {'max_iters': 1000},
+        return self.qp_solver(*params, solver_args = {'max_iters': 1000},) # 'solve_method': 'ECOS' , 
     
     def get_relaxation(self, x: Tensor) -> Tensor:
         return self._solve_qp_cvxplayers(x)[1]

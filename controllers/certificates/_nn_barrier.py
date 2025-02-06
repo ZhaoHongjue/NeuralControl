@@ -54,4 +54,5 @@ class NNBarrier(NNCertificate):
         return safe_violation_loss, unsafe_violation_loss
         
     def compute_relaxation_loss(self, xs: Tensor) -> Tensor:
-        return (self.get_relaxation(xs)).mean()
+        relaxation = self.get_relaxation(xs)
+        return F.relu(relaxation).mean()
