@@ -3,3 +3,4 @@ test-notebooks
 *outputs*
 *.out
 *.txt
+wandb
