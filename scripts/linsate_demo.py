@@ -27,7 +27,7 @@ if __name__ == '__main__':
     
     # Generate Data
     dynamic = LinearSatellite()
-    n_samples, safe_ratio, goal_ratio = int(1e3), 0.2, 0.4
+    n_samples, safe_ratio, goal_ratio = int(1e5), 0.2, 0.4
 
     print('Generating Safe Data...')
     safe_x = dynamic.sample_with_mask(int(n_samples * safe_ratio), type = 'safe')
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     )
     opt: torch.optim.Optimizer = torch.optim.Adam(nn_barrier.parameters(), lr = 1e-3)
 
-    fabric = Fabric(accelerator = 'cuda', devices = [0,])
+    fabric = Fabric(accelerator = 'cuda', devices = [0, 1, 2, 3])
     fabric.launch()
     model, opt = fabric.setup(nn_barrier, opt)
     train_iter, val_iter = fabric.setup_dataloaders(train_iter, val_iter)
