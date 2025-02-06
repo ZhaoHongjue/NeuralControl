@@ -29,7 +29,7 @@ if __name__ == '__main__':
     print('Generating Goal Data...')
     goal_x = dynamic.sample_with_mask(int(n_samples * goal_ratio), type = 'goal') 
     print('Generating Free Data...')
-    free_x = dynamic.sample_with_mask(n_samples - safe_x.shape[0] - goal_x.shape[0], type = 'free')
+    free_x = dynamic.sample_state_space(n_samples - safe_x.shape[0] - goal_x.shape[0])
     data_x = torch.cat([safe_x, goal_x, free_x], dim = 0)
 
     random_indices = torch.randperm(data_x.shape[0])
