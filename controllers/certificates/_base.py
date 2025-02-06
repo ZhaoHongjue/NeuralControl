@@ -87,7 +87,7 @@ class Certificate(ABC):
         - `CvxpyLayer`: QP solver'''
         u = cp.Variable(self.dynamic.n_control)
         relaxation = cp.Variable(1, nonneg = True)
-        V_param = cp.Parameter(1, nonneg = True)
+        V_param = cp.Parameter(1, nonneg = self.certif_type == 'lyapunov')
         Lf_V_param = cp.Parameter(1)
         Lg_V_param = cp.Parameter(self.dynamic.n_control)
         r_penalty_param = cp.Parameter(1, nonneg = True)
@@ -131,7 +131,7 @@ class Certificate(ABC):
         r_penalty = self.r_penalty * torch.ones(xs.size(0), 1).to(xs.device)
         us_ref = self.nominal_controller(xs)
         params = [v_values, Lf_v, Lg_v, r_penalty, us_ref]
-        return self.qp_solver(*params, solver_args = {'max_iters': 1000},) # 'solve_method': 'ECOS' , 
+        return self.qp_solver(*params, solver_args = {'solve_method': 'Clarabel'},) # 
     
     def get_relaxation(self, x: Tensor) -> Tensor:
         return self._solve_qp_cvxplayers(x)[1]

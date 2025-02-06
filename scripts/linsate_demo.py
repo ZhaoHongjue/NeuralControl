@@ -16,20 +16,21 @@ batch_size = 10000
 if __name__ == '__main__':
     init_seed(1)
     
-    ckpt_pth = './outputs'
+    ckpt_pth = './outputs2'
     if not os.path.exists(ckpt_pth):
         os.makedirs(ckpt_pth)
     
     # Generate Data
     dynamic = LinearSatellite()
-    n_samples, safe_ratio, unsafe_ratio = int(1e5), 0.5, 0.5
+    n_samples, safe_ratio, goal_ratio = int(1e5), 0.2, 0.4
 
     print('Generating Safe Data...')
     safe_x = dynamic.sample_with_mask(int(n_samples * safe_ratio), type = 'safe')
     print('Generating Goal Data...')
-    unsafe_x = dynamic.sample_with_mask(int(n_samples * unsafe_ratio), type = 'unsafe') 
+    goal_x = dynamic.sample_with_mask(int(n_samples * goal_ratio), type = 'unsafe') 
     print('Generating Free Data...')
-    data_x = torch.cat([safe_x, unsafe_x], dim = 0)
+    free_x = dynamic.sample_with_mask(n_samples - safe_x.shape[0] - goal_x.shape[0], type = 'free')
+    data_x = torch.cat([safe_x, goal_x, free_x], dim = 0)
 
     random_indices = torch.randperm(data_x.shape[0])
     split_idx = int(0.8 * data_x.shape[0])
