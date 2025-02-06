@@ -10,27 +10,13 @@ from systems import *
 from controllers import *
 from controllers.certificates import *
 import controllers.functional as cF
-import utils
+from utils import save_checkpoint, init_seed
 
-utils.init_seed(0)
-
-def save_checkpoint(model, optimizer, epoch, path):
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-    }, path)
-    
-def load_checkpoint(model, optimizer, path):
-    checkpoint = torch.load(path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    return model, optimizer, checkpoint['epoch']
 
 if __name__ == '__main__':
-    utils.init_seed(1)
+    init_seed(1)
     
-    ckpt_pth = './outputs'
+    ckpt_pth = './outputs2'
     if not os.path.exists(ckpt_pth):
         os.makedirs(ckpt_pth)
     
@@ -85,7 +71,6 @@ if __name__ == '__main__':
     for epoch in range(200):
         for batch_idx, batch in enumerate(train_iter):
             x, goal_mask, safe_mask, unsafe_mask = batch
-            x = cF.normalize(x, dynamic.state_limits)
             start = time.time()
             opt.zero_grad()
             safe_violation_loss, unsafe_violation_loss = nn_barrier.compute_violation_loss(x, goal_mask, safe_mask, unsafe_mask)
@@ -103,7 +88,6 @@ if __name__ == '__main__':
         val_loss, val_safe_violation_loss, val_unsafe_violation_loss, val_relaxation_loss = 0, 0, 0, 0
         with torch.no_grad():
             for x, goal_mask, safe_mask, unsafe_mask in val_iter:
-                x = cF.normalize(x, dynamic.state_limits)
                 safe_violation_loss, unsafe_violation_loss = nn_barrier.compute_violation_loss(x, goal_mask, safe_mask, unsafe_mask)
                 if epoch < 100:
                     relaxation_loss = torch.tensor(0.0)

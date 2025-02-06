@@ -1,5 +1,5 @@
 __pycache__
 test-notebooks
-outputs
+*outputs*
 *.out
 *.txt
