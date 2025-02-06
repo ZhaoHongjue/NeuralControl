@@ -11,6 +11,7 @@ from controllers import *
 from controllers.certificates import *
 from utils import save_checkpoint, init_seed
 
+batch_size = 10000
 
 if __name__ == '__main__':
     init_seed(1)
@@ -41,7 +42,7 @@ if __name__ == '__main__':
             dynamic.get_mask(train_x, 'goal'),
             dynamic.get_mask(train_x, 'safe'),
             dynamic.get_mask(train_x, 'unsafe'),
-        ), batch_size = 20000, shuffle = True
+        ), batch_size = batch_size, shuffle = True
     )
 
     val_iter = DataLoader(
@@ -50,7 +51,7 @@ if __name__ == '__main__':
             dynamic.get_mask(val_x, 'goal'),
             dynamic.get_mask(val_x, 'safe'),
             dynamic.get_mask(val_x, 'unsafe'),
-        ), batch_size = 20000
+        ), batch_size = batch_size
     )
     
     nominal_controller = LQRController(dynamic)
