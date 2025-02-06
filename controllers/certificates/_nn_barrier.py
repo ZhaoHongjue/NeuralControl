@@ -45,7 +45,7 @@ class NNBarrier(NNCertificate):
         Returns:
         - `loss` (`Tensor[1]`): loss value
         '''
-        eps = 1e-2
+        eps = 0
         v_values = self(xs)
         
         safe_violation_loss = 100 * F.relu(eps - v_values[safe_mask]).mean()
@@ -54,4 +54,4 @@ class NNBarrier(NNCertificate):
         return safe_violation_loss, unsafe_violation_loss
         
     def compute_relaxation_loss(self, xs: Tensor) -> Tensor:
-        return (self.get_relaxation(xs)**2).mean()
+        return (self.get_relaxation(xs)).mean()

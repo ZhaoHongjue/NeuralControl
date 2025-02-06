@@ -101,10 +101,10 @@ class Certificate(ABC):
         else:
             raise ValueError('Unknown certificate type')
             
-        # lower_limits, upper_limits = self.dynamic.control_limits
-        # for i in range(self.dynamic.n_control):
-        #     constraints.append(u[i] >= lower_limits[i])
-        #     constraints.append(u[i] <= upper_limits[i])
+        lower_limits, upper_limits = self.dynamic.control_limits
+        for i in range(self.dynamic.n_control):
+            constraints.append(u[i] >= lower_limits[i])
+            constraints.append(u[i] <= upper_limits[i])
 
         obj_expr = cp.norm(u - u_ref_param)**2 + cp.multiply(r_penalty_param, relaxation)
         obj = cp.Minimize(obj_expr)

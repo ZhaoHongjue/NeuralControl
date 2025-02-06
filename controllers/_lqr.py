@@ -55,4 +55,6 @@ class LQRController(Controller):
         Return:
         - `Tensor[batch_size * N_CONTROL]`: Control vectors.
         '''
-        return -x @ self.K.T.to(x.device)
+        lower_limits, upper_limits = self.dynamic.control_limits
+        us = -x @ self.K.T.to(x.device)
+        return torch.clamp(us, lower_limits, upper_limits)

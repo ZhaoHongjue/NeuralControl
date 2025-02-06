@@ -24,7 +24,7 @@ class MLP(nn.Module):
                 setattr(self, f'l{i+1}', nn.Linear(hidden_size, output_size))
             else:
                 setattr(self, f'l{i+1}', nn.Linear(hidden_size, hidden_size))
-                setattr(self, f'relu{i+1}', nn.ReLU())
+                setattr(self, f'relu{i+1}', nn.Tanh())
                 
     def forward(self, x: Tensor) -> Tensor:
         for module in self.children():
