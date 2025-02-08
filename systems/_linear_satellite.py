@@ -88,9 +88,9 @@ class LinearSatellite(CtrlAffSys):
         assert x.dim() == 2, 'Input must be a batch of states'
         distance =  x[:, :3].norm(dim = 1, p = 2)
         
-        if   type == 'safe'  : return distance >= 0.75 # torch.logical_and(distance <= 0.75, distance >= 0.25)
-        elif type == 'unsafe': return torch.logical_or(distance <= 0.25, distance >= 1.5)
-        elif type == 'goal'  : return distance <= 0.5 # torch.ones(x.shape[0], dtype = torch.bool)
+        if   type == 'safe'  : return torch.logical_and(distance <= 1.5, distance >= 0.25) # distance >= 0.75 # 
+        elif type == 'unsafe': return torch.logical_or(distance < 0.25, distance > 1.5)
+        elif type == 'goal'  : return distance < 0.25 # torch.ones(x.shape[0], dtype = torch.bool)
         else: raise ValueError('Invalid mask type')
         
     
