@@ -47,16 +47,6 @@ class NNCertificate(nn.Module, Certificate):
     def certif_type(self) -> str:
         raise NotImplementedError
     
-    @abstractmethod
-    def compute_loss(self, xs: Tensor) -> Tensor:
-        '''
-        Compute the loss function
-        
-        Args:
-        - `x` (`Tensor[batch_size * N_DIM]`): state vector
-        '''
-        raise NotImplementedError
-    
     def _value(self, x: Tensor) -> Tensor:
         '''
         Compute the value of the Lyapunov function
