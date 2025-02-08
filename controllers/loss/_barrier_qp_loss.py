@@ -12,7 +12,7 @@ from ..certificates import Certificate, NNCertificate, NNBarrier
 from ..functional import barrier_boundary_loss, barrier_relaxation_loss
 
 
-class Barrier_QP_Loss:
+class CBF_QP_Loss:
     def __init__(
         self, 
         nn_barrier: NNBarrier,
