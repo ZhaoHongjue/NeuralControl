@@ -52,3 +52,22 @@ def barrier_relaxation_loss(
     if reduction == 'mean':  return relaxation.mean()
     elif reduction == 'sum': return relaxation.sum()
     else: raise ValueError(f'Unknown reduction method: {reduction}')
+    
+
+def barrier_derivative_loss(
+    nn_barrier: NNBarrier,
+    xs: Tensor,
+    reduction: str = 'mean'
+) -> Tensor:
+    '''
+    Reference:
+    '''
+    us = nn_barrier.nominal_controller(xs)
+    hs = nn_barrier(xs)
+    Lf_h, Lg_h = nn_barrier.compute_lie_deriv(xs)
+    dh = Lf_h + torch.einsum('ij,ij->i', Lg_h, us).unsqueeze(1)
+    deriv_loss = F.relu(-dh - nn_barrier.lamb * hs)
+    if reduction == 'mean':  return deriv_loss.mean()
+    elif reduction == 'sum': return deriv_loss.sum()
+    else: raise ValueError(f'Unknown reduction method: {reduction}')
+    

@@ -18,11 +18,11 @@ if __name__ == '__main__':
     wandb.init(
         project = 'nn_barrier', 
         entity = 'hongjue', 
-        name = 'linsate_demo'
+        name = 'linsate_qp_demo'
     )
     init_seed(1)
     
-    ckpt_pth = './outputs/linsate_demo'
+    ckpt_pth = './outputs/linsate_qp_demo'
     if not os.path.exists(ckpt_pth):
         os.makedirs(ckpt_pth)
     
