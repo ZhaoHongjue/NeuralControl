@@ -85,13 +85,13 @@ class Certificate(ABC):
         
         Returns:
         - `CvxpyLayer`: QP solver'''
-        u = cp.Variable(self.dynamic.n_control)
-        relaxation = cp.Variable(1, nonneg = True)
-        V_param = cp.Parameter(1, nonneg = self.certif_type == 'lyapunov')
-        Lf_V_param = cp.Parameter(1)
-        Lg_V_param = cp.Parameter(self.dynamic.n_control)
-        r_penalty_param = cp.Parameter(1, nonneg = True)
-        u_ref_param = cp.Parameter(self.dynamic.n_control)
+        u = cp.Variable(self.dynamic.n_control, name = 'u')
+        relaxation = cp.Variable(1, nonneg = True, name = 'relaxation')
+        V_param = cp.Parameter(1, nonneg = self.certif_type == 'lyapunov', name = 'V_param')
+        Lf_V_param = cp.Parameter(1, name = 'Lf_V_param')
+        Lg_V_param = cp.Parameter(self.dynamic.n_control, name = 'Lg_V_param')
+        r_penalty_param = cp.Parameter(1, nonneg = True, name = 'r_penalty_param')
+        u_ref_param = cp.Parameter(self.dynamic.n_control, name = 'u_ref_param')
         certificate_cond = Lf_V_param + Lg_V_param @ u + self.lamb * V_param
         
         if self.certif_type == 'lyapunov':
