@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     fabric = Fabric(accelerator = 'cuda', devices = [0,])
     fabric.launch()
-    model, opt = fabric.setup(nn_barrier, opt)
+    nn_barrier, opt = fabric.setup(nn_barrier, opt)
     train_iter, val_iter = fabric.setup_dataloaders(train_iter, val_iter)
 
 
@@ -96,7 +96,7 @@ if __name__ == '__main__':
             safe_loss, unsafe_loss = cF.barrier_boundary_loss(h, safe_mask, unsafe_mask)
             safe_loss, unsafe_loss = 100 * safe_loss, 100 * unsafe_loss
             if epoch < 100: relaxation_loss = torch.tensor(0.0)
-            else: relaxation_loss = cF.barrier_relaxation_loss(nn_barrier, x)
+            else: relaxation_loss = cF.certif_relaxation_loss(nn_barrier, x)
             loss = safe_loss + unsafe_loss + relaxation_loss
             fabric.backward(loss)
             opt.step()
@@ -116,7 +116,7 @@ if __name__ == '__main__':
                 safe_loss, unsafe_loss = cF.barrier_boundary_loss(h, safe_mask, unsafe_mask)
                 safe_loss, unsafe_loss = 100 * safe_loss, 100 * unsafe_loss
                 if epoch < 100: relaxation_loss = torch.tensor(0.0)
-                else: relaxation_loss = cF.barrier_relaxation_loss(nn_barrier, x)
+                else: relaxation_loss = cF.certif_relaxation_loss(nn_barrier, x)
                 loss = safe_loss + unsafe_loss + relaxation_loss
                 
                 val_loss += loss.item()

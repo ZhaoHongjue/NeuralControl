@@ -93,7 +93,7 @@ if __name__ == '__main__':
             opt.zero_grad()
             h = nn_barrier(x)
             safe_loss, unsafe_loss = cF.barrier_boundary_loss(h, safe_mask, unsafe_mask)
-            deriv_loss = cF.barrier_derivative_loss(nn_barrier, x[safe_mask])
+            deriv_loss = cF.barrier_deriv_loss(nn_barrier, x[safe_mask])
             loss = 100 * (safe_loss + unsafe_loss + deriv_loss)
             fabric.backward(loss)
             opt.step()
@@ -111,7 +111,7 @@ if __name__ == '__main__':
                 
                 h = nn_barrier(x)
                 safe_loss, unsafe_loss = cF.barrier_boundary_loss(h, safe_mask, unsafe_mask)
-                deriv_loss = cF.barrier_derivative_loss(nn_barrier, x[safe_mask])
+                deriv_loss = cF.barrier_deriv_loss(nn_barrier, x[safe_mask])
                 loss = 100 * (safe_loss + unsafe_loss + deriv_loss)
                 
                 val_loss += loss.item()
