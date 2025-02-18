@@ -36,6 +36,9 @@ class NNCertificate(nn.Module, Certificate):
         if nn_type == 'MLP':
             self.dnn = MLP(dynamic.n_dim, **nn_kwargs)
             init_nn_weights(self.dnn)
+        elif nn_type == 'QuadNN':
+            self.dnn = QuadNN(dynamic.n_dim, **nn_kwargs)
+            init_nn_weights(self.dnn)
         else:
             raise ValueError(f'NN type {nn_type} not supported')
         self.qp_solver = self.init_qp_solver()
@@ -58,3 +61,13 @@ class NNCertificate(nn.Module, Certificate):
         - `v` (`Tensor[1]`): value of the Lyapunov function
         '''
         return self.dnn(x).squeeze(-1)
+    
+class NNLyapunov(NNCertificate):
+    @property
+    def certif_type(self) -> str:
+        return 'lyapunov'
+
+class NNBarrier(NNCertificate):
+    @property
+    def certif_type(self) -> str:
+        return 'barrier'
