@@ -4,12 +4,10 @@ Email:  hongjue2@illinois.edu
 Date:   02/05/2025
 '''
 
-import torch
-from torch import nn, Tensor
-from torch.nn import functional as F
+from torch import Tensor
 
-from ..certificates import Certificate, NNCertificate, NNBarrier
-from ..functional import barrier_boundary_loss, barrier_relaxation_loss
+from ..certificates import NNBarrier
+from ..functional import barrier_boundary_loss, certif_relaxation_loss
 
 
 class CBF_QP_Loss:
@@ -40,7 +38,7 @@ class CBF_QP_Loss:
             hs, safe_mask, unsafe_mask, reduction = self.reduction
         )
         if current_epoch > self.shape_epoch:
-            relaxation_loss = barrier_relaxation_loss(
+            relaxation_loss = certif_relaxation_loss(
                 self.nn_barrier, xs, reduction = self.reduction
             )
         else: relaxation_loss = 0.0

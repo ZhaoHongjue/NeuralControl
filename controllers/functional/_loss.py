@@ -8,7 +8,7 @@ import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
 
-from controllers.certificates import NNCertificate, NNBarrier
+from controllers.certificates import NNCertificate, NNBarrier, NNLyapunov
 
 
 def barrier_boundary_loss(
@@ -38,23 +38,7 @@ def barrier_boundary_loss(
         raise ValueError(f'Unknown reduction method: {reduction}')
     
 
-def barrier_relaxation_loss(
-    nn_barrier: NNBarrier,
-    xs: Tensor,
-    reduction: str = 'mean'
-) -> Tensor:
-    '''
-    Reference: https://github.com/MIT-REALM/neural_clbf/blob/main/neural_clbf/controllers/neural_cbf_controller.py
-    
-    Implement the loss function for the barrier boundary in Safe Control with learned certificates.
-    '''
-    relaxation = F.relu(nn_barrier.get_relaxation(xs))
-    if reduction == 'mean':  return relaxation.mean()
-    elif reduction == 'sum': return relaxation.sum()
-    else: raise ValueError(f'Unknown reduction method: {reduction}')
-    
-
-def barrier_derivative_loss(
+def barrier_deriv_loss(
     nn_barrier: NNBarrier,
     xs: Tensor,
     reduction: str = 'mean'
@@ -71,3 +55,45 @@ def barrier_derivative_loss(
     elif reduction == 'sum': return deriv_loss.sum()
     else: raise ValueError(f'Unknown reduction method: {reduction}')
     
+
+def lyap_deriv_loss(
+    nn_lyap: NNLyapunov,
+    xs: Tensor,
+    reduction: str = 'mean'
+) -> Tensor:
+    '''
+    Reference: https://github.com/MIT-REALM/neural_clbf/blob/main/neural_clbf/controllers/neural_cbf_controller.py
+    
+    Implement the loss function for the Lyapunov function in Safe Control with learned certificates.
+    
+    Args:
+    - `nn_lyap` (`NNLyapunov`): Lyapunov function
+    - `xs` (`Tensor[batch_size, n_dim]`): state
+    - `reduction` (`str`): reduction method
+    
+    Returns:
+    - `loss` (`Tensor`): loss
+    '''
+    Lf_V, Lg_V = nn_lyap.compute_lie_deriv(xs)
+    us = nn_lyap.nominal_controller(xs)
+    dV = Lf_V + torch.einsum('ij,ij->i', Lg_V, us).unsqueeze(1)
+    deriv_loss = F.relu(dV)
+    if reduction == 'mean':  return deriv_loss.mean()
+    elif reduction == 'sum': return deriv_loss.sum()
+    else: raise ValueError(f'Unknown reduction method: {reduction}')
+
+
+def certif_relaxation_loss(
+    nn_certif: NNCertificate,
+    xs: Tensor,
+    reduction: str = 'mean'
+) -> Tensor:
+    '''
+    Reference: https://github.com/MIT-REALM/neural_clbf/blob/main/neural_clbf/controllers/neural_cbf_controller.py
+    
+    Implement the loss function for the barrier boundary in Safe Control with learned certificates.
+    '''
+    relaxation = F.relu(nn_certif.get_relaxation(xs))
+    if reduction == 'mean':  return relaxation.mean()
+    elif reduction == 'sum': return relaxation.sum()
+    else: raise ValueError(f'Unknown reduction method: {reduction}')
