@@ -82,6 +82,20 @@ def lyap_deriv_loss(
     elif reduction == 'sum': return deriv_loss.sum()
     else: raise ValueError(f'Unknown reduction method: {reduction}')
 
+def lyap_qp_loss(
+    nn_lyap: NNLyapunov,
+    xs: Tensor,
+    reduction: str = 'mean'
+) -> Tensor:
+    Lf_V, Lg_V = nn_lyap.compute_lie_deriv(xs)
+    us, rs = nn_lyap._solve_qp_cvxplayers(xs)
+    dV = Lf_V + torch.einsum('ij,ij->i', Lg_V, us).unsqueeze(1)
+    V = nn_lyap(xs)
+    deriv_loss = F.relu(dV + nn_lyap.lamb * V)
+    relax_loss = F.relu(rs)
+    if reduction == 'mean':  return deriv_loss.mean(), relax_loss.mean()
+    elif reduction == 'sum': return deriv_loss.sum(), relax_loss.sum()
+    else: raise ValueError(f'Unknown reduction method: {reduction}')
 
 def certif_relaxation_loss(
     nn_certif: NNCertificate,

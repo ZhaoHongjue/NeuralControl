@@ -1,4 +1,4 @@
-import sys, os, time
+import sys, os, time, argparse
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
@@ -16,14 +16,21 @@ from utils import save_checkpoint, init_seed
 batch_size = 1000
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lamb', type = float, default = 0.5)
+    args = parser.parse_args()
+    
     wandb.init(
         project = 'nn_lyapunov', 
         entity = 'hongjue', 
-        name = 'inverted_pendulum_qp_demo'
+        name = f'inverted_pendulum_qp_demo-lamb{args.lamb}',
+        config = {
+            'lamb': args.lamb,
+        }
     )
     init_seed(1)
 
-    ckpt_pth = './outputs/inverted_pendulum_qp_demo'
+    ckpt_pth = f'./outputs/inverted_pendulum_qp_demo-lamb{args.lamb}'
     if not os.path.exists(ckpt_pth):
         os.makedirs(ckpt_pth)
         
@@ -58,8 +65,8 @@ if __name__ == '__main__':
     nominal_controller = ConstantController(dynamic)
     nn_lyap = NNLyapunov(
         dynamic, nominal_controller,
-        lamb = 0.1, r_penalty = 1e4, nn_type = 'QuadNN',
-        nn_kwargs = {'mlp_output_size': 32, 'hidden_size': 256, 'n_hidden': 2, 'activation': 'ReLU',}
+        lamb = args.lamb, r_penalty = 1e5, nn_type = 'QuadNN',
+        nn_kwargs = {'mlp_output_size': 32, 'hidden_size': 256, 'layer_num': 2, 'activation': 'ReLU',}
     )
     opt: torch.optim.Optimizer = torch.optim.Adam(
         nn_lyap.parameters(), lr = 1e-4, weight_decay = 1e-6, 
@@ -79,8 +86,9 @@ if __name__ == '__main__':
             start = time.time()
             opt.zero_grad()
             goal_loss: Tensor = 10 * nn_lyap(goal_point).mean()
-            deriv_loss = cF.lyap_deriv_loss(nn_lyap, x)
-            relaxation_loss = 1000 * cF.certif_relaxation_loss(nn_lyap, x)
+            deriv_loss, relaxation_loss = cF.lyap_qp_loss(nn_lyap, x)
+            deriv_loss = 1000 * deriv_loss
+            relaxation_loss = 1000 * relaxation_loss
             loss = goal_loss + deriv_loss + relaxation_loss
             fabric.backward(loss)
             opt.step()
@@ -97,8 +105,9 @@ if __name__ == '__main__':
             for x, goal_mask, safe_mask, unsafe_mask in val_iter:
                 goal_point = goal_point.to(x.device)
                 goal_loss: Tensor = 10 * nn_lyap(goal_point).mean()
-                deriv_loss = cF.lyap_deriv_loss(nn_lyap, x)
-                relaxation_loss = 1000 * cF.certif_relaxation_loss(nn_lyap, x)
+                deriv_loss, relaxation_loss = cF.lyap_qp_loss(nn_lyap, x)
+                deriv_loss = 1000 * deriv_loss
+                relaxation_loss = 1000 * relaxation_loss
                 loss = goal_loss + deriv_loss + relaxation_loss
                 
                 val_loss += loss.item()
