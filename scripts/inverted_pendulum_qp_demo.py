@@ -18,6 +18,7 @@ batch_size = 1000
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lamb', type = float, default = 0.5)
+    parser.add_argument('--cuda', type = int, default = 0)
     args = parser.parse_args()
     
     wandb.init(
@@ -72,7 +73,7 @@ if __name__ == '__main__':
         nn_lyap.parameters(), lr = 1e-4, weight_decay = 1e-6, 
     )
 
-    fabric = Fabric(accelerator = 'cuda', devices = [0,])
+    fabric = Fabric(accelerator = 'cuda', devices = [args.cuda,])
     fabric.launch()
     nn_lyap, opt = fabric.setup(nn_lyap, opt)
     train_iter, val_iter = fabric.setup_dataloaders(train_iter, val_iter)

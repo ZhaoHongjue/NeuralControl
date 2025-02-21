@@ -4,3 +4,5 @@ test-notebooks
 *.out
 *.txt
 wandb
+shells
+logs
