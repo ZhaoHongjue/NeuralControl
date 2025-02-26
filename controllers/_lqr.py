@@ -9,7 +9,7 @@ from torch import Tensor
 
 from systems import CtrlAffSys
 from ._base_controller import Controller
-from .functional import continuous_lqr, discrete_lqr, discretize_AB
+from utils import continuous_lqr, discrete_lqr, discretize_AB
 
 
 class LQRController(Controller):

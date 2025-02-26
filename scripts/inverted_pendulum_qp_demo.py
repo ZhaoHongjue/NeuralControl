@@ -9,9 +9,9 @@ from lightning.fabric import Fabric
 
 from systems import *
 from controllers import *
-from controllers.certificates import *
-import controllers.functional as cF
-from utils import save_checkpoint, init_seed
+from certificates import NNLyapunov
+import utils, utils.loss
+
 
 batch_size = 1000
 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
             'lamb': args.lamb,
         }
     )
-    init_seed(1)
+    utils.init_seed(1)
 
     ckpt_pth = f'./outputs/inverted_pendulum_qp_demo-lamb{args.lamb}'
     if not os.path.exists(ckpt_pth):
@@ -87,7 +87,7 @@ if __name__ == '__main__':
             start = time.time()
             opt.zero_grad()
             goal_loss: Tensor = 10 * nn_lyap(goal_point).mean()
-            deriv_loss, relaxation_loss = cF.lyap_qp_loss(nn_lyap, x)
+            deriv_loss, relaxation_loss = utils.loss.lyap_qp_loss(nn_lyap, x)
             deriv_loss = 1000 * deriv_loss
             relaxation_loss = 1000 * relaxation_loss
             loss = goal_loss + deriv_loss + relaxation_loss
@@ -106,7 +106,7 @@ if __name__ == '__main__':
             for x, goal_mask, safe_mask, unsafe_mask in val_iter:
                 goal_point = goal_point.to(x.device)
                 goal_loss: Tensor = 10 * nn_lyap(goal_point).mean()
-                deriv_loss, relaxation_loss = cF.lyap_qp_loss(nn_lyap, x)
+                deriv_loss, relaxation_loss = utils.loss.lyap_qp_loss(nn_lyap, x)
                 deriv_loss = 1000 * deriv_loss
                 relaxation_loss = 1000 * relaxation_loss
                 loss = goal_loss + deriv_loss + relaxation_loss
@@ -135,6 +135,6 @@ if __name__ == '__main__':
             },
         })  
             
-        save_checkpoint(nn_lyap, opt, epoch, f'{ckpt_pth}/inverted_pendulum_qp_demo-epoch{epoch}.pt')
+        utils.save_checkpoint(nn_lyap, opt, epoch, f'{ckpt_pth}/inverted_pendulum_qp_demo-epoch{epoch}.pt')
         print('=' * 150)
     

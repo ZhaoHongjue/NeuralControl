@@ -15,7 +15,7 @@ import cvxpy as cp
 from cvxpylayers.torch import CvxpyLayer
 
 from systems import CtrlAffSys
-from .. import Controller, ConstantController
+from controllers import Controller, ConstantController
 
 
 class Certificate(ABC):

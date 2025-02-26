@@ -5,7 +5,6 @@ Date:   12/29/2024
 '''
 
 from abc import ABC, abstractmethod
-import torch
 from torch import Tensor
 from systems import CtrlAffSys
 

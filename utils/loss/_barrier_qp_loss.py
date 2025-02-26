@@ -6,8 +6,8 @@ Date:   02/05/2025
 
 from torch import Tensor
 
-from ..certificates import NNBarrier
-from ..functional import barrier_boundary_loss, certif_relaxation_loss
+from certificates import NNBarrier
+from ._loss import barrier_boundary_loss, certif_relaxation_loss
 
 
 class CBF_QP_Loss:

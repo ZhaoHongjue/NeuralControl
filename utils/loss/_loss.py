@@ -5,10 +5,10 @@ Date:   02/05/2025
 '''
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor
 from torch.nn import functional as F
 
-from controllers.certificates import NNCertificate, NNBarrier, NNLyapunov
+from certificates import NNCertificate, NNBarrier, NNLyapunov
 
 
 def barrier_boundary_loss(

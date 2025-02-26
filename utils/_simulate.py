@@ -8,7 +8,7 @@ import torch, numpy as np, torchode as tode
 from torch import Tensor
 
 from systems import CtrlAffSys
-from .._base_controller import Controller
+from controllers import Controller
 
 
 def simulate_con_system(

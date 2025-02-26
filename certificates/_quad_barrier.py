@@ -2,46 +2,35 @@
 Author: Hongjue Zhao
 Email:  hongjue2@illinois.edu
 Date:   01/30/2025
-
-Reference: https://github.com/MIT-REALM/neural_clbf/blob/main/neural_clbf/controllers/clf_controller.py
 '''
-
-from warnings import catch_warnings
 
 import torch
 from torch import Tensor
 
 from systems import CtrlAffSys
-from .. import Controller
-from .. import functional as F
+from controllers import Controller
 from ._base import Certificate
 
 
-class QuadLyapunov(Certificate):
+class QuadBarrier(Certificate):
+    '''
+    Only used for testing purposes.
+    '''
     def __init__(
         self, 
         dynamic: CtrlAffSys, 
         nominal_controller: Controller = None,
         lamb: float = 1.0,
         r_penalty: float = 1.0,
-        P: Tensor = None,
         **kwargs
     ):
         super().__init__(dynamic, nominal_controller, lamb, r_penalty, **kwargs)
-        if P is None:
-            with catch_warnings(record = True) as w:
-                self.P = F.compute_sys_lyapunov_p(dynamic, nominal_controller)
-                if w: 
-                    print('Cannot compute the Lyapunov matrix, using the identity matrix instead')
-                    self.P = torch.eye(dynamic.n_dim)
-        else:
-            assert P.shape == (dynamic.n_dim, dynamic.n_dim), 'P must be a square matrix'
-            self.P = P
-            
+        self.P = torch.eye(dynamic.n_dim)
+    
     @property
     def certif_type(self) -> str:
-        return 'lyapunov'
-            
+        return 'barrier'
+    
     def _value(self, x: Tensor) -> Tensor:
         return x @ self.P.to(x.device) @ x
     

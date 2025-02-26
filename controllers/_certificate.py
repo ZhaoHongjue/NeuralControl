@@ -11,7 +11,7 @@ from torch import Tensor
 from systems import CtrlAffSys
 from ._base_controller import Controller
 from ._constant import ConstantController
-from .certificates import Certificate, QuadLyapunov
+from certificates import Certificate, QuadLyapunov
 
 
 class CertifController(Controller):

@@ -10,8 +10,8 @@ from scipy.linalg import solve_continuous_are, solve_discrete_are, solve
 from scipy.linalg import solve_continuous_lyapunov, solve_discrete_lyapunov
 
 from systems import CtrlAffSys
-from .._base_controller import Controller
-from ._utils import discretize_AB
+from controllers import Controller
+
 
 def continuous_lqr(A: Tensor, B: Tensor, Q: Tensor, R: Tensor) -> Tensor:
     '''
@@ -77,3 +77,39 @@ def compute_sys_lyapunov_p(
         return discrete_lin_lyapunov_p(A_d, Q)
     else:
         raise ValueError('Type must be either continuous or discrete')
+    
+    
+def discretize_AB(
+    A: Tensor, 
+    B: Tensor, 
+    dt: float = 0.1, 
+    type: str = 'forward_euler'
+) -> tuple[Tensor, Tensor]:
+    '''
+    Reference:
+    '''
+    if type == 'forward_euler':
+        A_d = torch.eye(A.shape[0]) + A * dt
+        B_d = B * dt
+    elif type == 'backward_euler':
+        A_d = torch.inverse(torch.eye(A.shape[0]) - A * dt)
+        B_d = A_d @ B * dt
+    else:
+        raise ValueError('Invalid discretization type')
+    
+    return A_d, B_d
+
+
+def normalize(
+    x: Tensor, 
+    state_limits: tuple[Tensor, Tensor],
+    scale: float = 1.0
+) -> Tensor:
+    '''
+    Reference: https://github.com/MIT-REALM/neural_clbf/blob/main/neural_clbf/controllers/controller_utils.py#L29
+    '''
+    lower, upper = state_limits
+    center = (lower + upper) / 2
+    range = (upper - lower) / 2
+    range /= scale
+    return (x - center.to(x.device)) / range.to(x.device)

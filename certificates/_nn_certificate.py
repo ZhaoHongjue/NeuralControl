@@ -4,15 +4,12 @@ Email:  hongjue2@illinois.edu
 Date:   02/02/2025
 '''
 
-from abc import abstractmethod
-
-import torch
 from torch import nn, Tensor
 
 from systems import CtrlAffSys
 from utils import init_nn_weights
 from models import *
-from .. import Controller
+from controllers import Controller
 from ._base import Certificate
 
 

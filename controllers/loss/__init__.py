@@ -1,1 +1,0 @@
-from ._barrier_qp_loss import Barrier_QP_Loss

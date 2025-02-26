@@ -8,9 +8,8 @@ from lightning.fabric import Fabric
 
 from systems import *
 from controllers import *
-from controllers.certificates import *
-import controllers.functional as cF
-from utils import save_checkpoint, init_seed
+from certificates import *
+import utils, utils.loss
 
 batch_size = 10000
 
@@ -20,7 +19,7 @@ if __name__ == '__main__':
         entity = 'hongjue', 
         name = 'linsate_qp_demo'
     )
-    init_seed(1)
+    utils.init_seed(1)
     
     ckpt_pth = './outputs/linsate_qp_demo'
     if not os.path.exists(ckpt_pth):
@@ -93,10 +92,10 @@ if __name__ == '__main__':
             
             opt.zero_grad()
             h = nn_barrier(x)
-            safe_loss, unsafe_loss = cF.barrier_boundary_loss(h, safe_mask, unsafe_mask)
+            safe_loss, unsafe_loss = utils.loss.barrier_boundary_loss(h, safe_mask, unsafe_mask)
             safe_loss, unsafe_loss = 100 * safe_loss, 100 * unsafe_loss
             if epoch < 100: relaxation_loss = torch.tensor(0.0)
-            else: relaxation_loss = cF.certif_relaxation_loss(nn_barrier, x)
+            else: relaxation_loss = utils.loss.certif_relaxation_loss(nn_barrier, x)
             loss = safe_loss + unsafe_loss + relaxation_loss
             fabric.backward(loss)
             opt.step()
@@ -113,10 +112,10 @@ if __name__ == '__main__':
             for x, goal_mask, safe_mask, unsafe_mask in val_iter:
                 
                 h = nn_barrier(x)
-                safe_loss, unsafe_loss = cF.barrier_boundary_loss(h, safe_mask, unsafe_mask)
+                safe_loss, unsafe_loss = utils.loss.barrier_boundary_loss(h, safe_mask, unsafe_mask)
                 safe_loss, unsafe_loss = 100 * safe_loss, 100 * unsafe_loss
                 if epoch < 100: relaxation_loss = torch.tensor(0.0)
-                else: relaxation_loss = cF.certif_relaxation_loss(nn_barrier, x)
+                else: relaxation_loss = utils.loss.certif_relaxation_loss(nn_barrier, x)
                 loss = safe_loss + unsafe_loss + relaxation_loss
                 
                 val_loss += loss.item()
@@ -143,5 +142,5 @@ if __name__ == '__main__':
             },
         })
         
-        save_checkpoint(nn_barrier, opt, epoch, f'{ckpt_pth}/linsate_demo-epoch{epoch}.pth')
+        utils.save_checkpoint(nn_barrier, opt, epoch, f'{ckpt_pth}/linsate_demo-epoch{epoch}.pth')
         print('=' * 150)
