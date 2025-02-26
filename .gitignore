@@ -1,9 +1,13 @@
-__pycache__
-test-notebooks
-*outputs*
 *.out
 *.txt
+*.csv
+
+__pycache__
+test-notebooks
 wandb
 shells
 logs
+checkpoints
+
 *test*
+*outputs*

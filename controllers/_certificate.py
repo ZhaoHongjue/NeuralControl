@@ -14,7 +14,7 @@ from ._constant import ConstantController
 from certificates import Certificate, QuadLyapunov
 
 
-class CertifController(Controller):
+class OptCertifController(Controller):
     def __init__(
         self,
         dynamic: CtrlAffSys,
