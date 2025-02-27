@@ -33,8 +33,11 @@ class NNCertificate(nn.Module, Certificate):
         if nn_type == 'MLP':
             self.dnn = MLP(dynamic.n_dim, **nn_kwargs)
             init_nn_weights(self.dnn)
-        elif nn_type == 'QuadNN':
-            self.dnn = QuadNN(dynamic.n_dim, **nn_kwargs)
+        elif nn_type == 'QuadMLP':
+            self.dnn = QuadMLP(dynamic.n_dim, **nn_kwargs)
+            init_nn_weights(self.dnn)
+        elif nn_type == 'QuadGoalMLP':
+            self.dnn = QuadGoalMLP(dynamic.n_dim, dynamic.goal_point, **nn_kwargs)
             init_nn_weights(self.dnn)
         else:
             raise ValueError(f'NN type {nn_type} not supported')

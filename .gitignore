@@ -6,8 +6,8 @@ __pycache__
 test-notebooks
 wandb
 shells
-logs
-checkpoints
+*logs*
+*checkpoints*
 
 *test*
 *outputs*

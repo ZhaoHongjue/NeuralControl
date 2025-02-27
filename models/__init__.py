@@ -1,2 +1,2 @@
 from ._mlp import MLP
-from ._pos_nn import QuadNN
+from ._quad_mlp import QuadMLP, QuadGoalMLP
