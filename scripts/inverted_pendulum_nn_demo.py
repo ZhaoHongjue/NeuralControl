@@ -54,7 +54,8 @@ class NNCertifCtrl(nn.Module):
     def lyap_deriv_loss(self, curr_xs: Tensor, next_xs: Tensor) -> Tensor:
         curr_vs = self.lyap_nn(curr_xs)
         next_vs = self.lyap_nn(next_xs)
-        return F.relu(curr_vs - self.lamb * next_vs).mean()
+        d_vs = (next_vs - curr_vs) / 0.01 + self.lamb * curr_vs
+        return d_vs[d_vs > 0].mean()
         
         
 def parse_args():
@@ -73,7 +74,7 @@ def parse_args():
     parser.add_argument('--hidden_size', type=int, default=256)
     parser.add_argument('--layer_num', type=int, default=3)
     parser.add_argument('--lyap_mlp_out', type=int, default=32)
-    parser.add_argument('--lamb', type=float, default=0.1)
+    parser.add_argument('--lamb', type=float, default=1.0)
     
     parser.add_argument('--cuda', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0)
@@ -99,6 +100,7 @@ def train_dynamic(
     for curr_xs, curr_us, next_xs in train_loader:
         pred_next_xs = nn_dynamic(curr_xs, curr_us)
         loss = F.mse_loss(pred_next_xs, next_xs)
+        dynamic_optim.zero_grad()
         fabric.backward(loss)
         dynamic_optim.step()
         dynamic_scheduler.step()
@@ -128,7 +130,7 @@ def train_ctrl(
         deriv_loss = nn_ctrl.lyap_deriv_loss(curr_xs, pred_next_xs)
         deriv_loss_lst.append(deriv_loss.item())
         
-        ctrl_loss = 100 * ctrl_mse_loss + 100 * goal_loss + 100 * deriv_loss
+        ctrl_loss = 100 * goal_loss + 100 * deriv_loss  + 1e-3 * ctrl_mse_loss
         ctrl_loss_lst.append(ctrl_loss.item())
         
         ctrl_optim.zero_grad()
@@ -176,7 +178,7 @@ def validate_ctrl(
         deriv_loss = nn_ctrl.lyap_deriv_loss(curr_xs, pred_next_xs)
         deriv_loss_lst.append(deriv_loss.item())
         
-        ctrl_loss = 100 * ctrl_mse_loss + 100 * goal_loss + 100 * deriv_loss
+        ctrl_loss = 100 * goal_loss + 100 * deriv_loss + 1e-3 * ctrl_mse_loss
         ctrl_loss_lst.append(ctrl_loss.item())
         
     ctrl_loss = np.mean(ctrl_loss_lst)
@@ -188,13 +190,16 @@ def validate_ctrl(
 
 if __name__ == '__main__':
     args = parse_args()
+    
     ckpt_pth = f'{os.path.dirname(SCRIPT_DIR)}/checkpoints'
-    os.makedirs(ckpt_pth, exist_ok = True)
+    dynamic_ckpt_pth = f'{ckpt_pth}/inv_pend_dynamic'
+    ctrl_ckpt_pth = f'{ckpt_pth}/inv_pend_ctrl'
+    os.makedirs(dynamic_ckpt_pth, exist_ok = True)
+    os.makedirs(ctrl_ckpt_pth, exist_ok = True)
+    
     utils.info_args_table(args)
     utils.init_seed(args.seed)
-    
-    wandb.init(project = 'inverted_pendulum_nn_demo', config = vars(args))
-    
+        
     # Initialize system, controller and fabric
     dynamic = InvertedPendulum()
     controller = ConstantController(dynamic)
@@ -216,59 +221,53 @@ if __name__ == '__main__':
     
     # Initialize Optimizers
     dynamic_optim: Optimizer = Adam(nn_dynamic.parameters(), lr = args.lr, weight_decay = args.weight_decay) # 
-    dynamic_scheduler = CosineAnnealingLR(dynamic_optim, T_max = args.n_epochs, eta_min = 1e-6)
+    dynamic_scheduler = CosineAnnealingLR(dynamic_optim, T_max = args.n_epochs, eta_min = 0.1 * args.lr)
     ctrl_optim: Optimizer = Adam(nn_ctrl.parameters(), lr = args.lr, weight_decay = args.weight_decay)
-    ctrl_scheduler = CosineAnnealingLR(ctrl_optim, T_max = args.n_epochs, eta_min = 1e-6)
+    ctrl_scheduler = CosineAnnealingLR(ctrl_optim, T_max = args.n_epochs, eta_min = 0.1 * args.lr)
     
     nn_dynamic, dynamic_optim = fabric.setup(nn_dynamic, dynamic_optim)
     nn_ctrl, ctrl_optim = fabric.setup(nn_ctrl, ctrl_optim)
     
-    # training loop
+    # train dynamic model
+    if not os.path.exists(f'{dynamic_ckpt_pth}/best.pt'):
+        min_dynamic_loss = float('inf')
+        for epoch in range(args.n_epochs):
+            train_dynamic_loss = train_dynamic(nn_dynamic, dynamic_optim, dynamic_scheduler, train_loader, fabric)
+            val_dynamic_loss = validate_dynamic(nn_dynamic, val_loader)
+            logging.info(f'Epoch {epoch:3} | Dynamic Loss: {train_dynamic_loss:.3e} | Val Dynamic Loss: {val_dynamic_loss:.3e}')
+            if val_dynamic_loss < min_dynamic_loss:
+                min_dynamic_loss = val_dynamic_loss
+                utils.save_checkpoint(nn_dynamic, dynamic_optim, epoch, f'{dynamic_ckpt_pth}/best.pt')
+    
+    nn_dynamic, dynamic_optim, epoch = utils.load_checkpoint(
+        nn_dynamic, dynamic_optim,
+        f'{dynamic_ckpt_pth}/best.pt'
+    )
+    
+    # Freeze the dynamic model parameters
+    for param in nn_dynamic.parameters():
+        param.requires_grad = False
+    
+    logging.info('')
+    logging.info('#' * 100)
+    logging.info('Training controller...')
+    logging.info('#' * 100)
+    logging.info('')
+    
+    # training controller
+    min_ctrl_loss = float('inf')
     for epoch in range(args.n_epochs):
-        # train models
-        start_time = time.time()
-        train_dynamic_loss = train_dynamic(nn_dynamic, dynamic_optim, dynamic_scheduler, train_loader, fabric)
         train_ctrl_loss, train_ctrl_mse, train_goal_loss, train_deriv_loss = train_ctrl(
             nn_dynamic, nn_ctrl, dynamic.goal_point, ctrl_optim, ctrl_scheduler, train_loader, fabric
         )
-        logging.info(f'Train | Epoch {epoch:3} | Dynamic Loss: {train_dynamic_loss:.3e} | Ctrl Loss: {train_ctrl_loss:.3e} | Ctrl MSE: {train_ctrl_mse:.3e} | Goal Loss: {train_goal_loss:.3e} | Deriv Loss: {train_deriv_loss:.3e}')
-        
-        # validate models
-        val_dynamic_loss = validate_dynamic(nn_dynamic, val_loader)
         val_ctrl_loss, val_ctrl_mse, val_goal_loss, val_deriv_loss = validate_ctrl(
             nn_dynamic, nn_ctrl, dynamic.goal_point, val_loader
         )
-        logging.info(f'Val   | Epoch {epoch:3} | Dynamic Loss: {val_dynamic_loss:.3e} | Ctrl Loss: {val_ctrl_loss:.3e} | Ctrl MSE: {val_ctrl_mse:.3e} | Goal Loss: {val_goal_loss:.3e} | Deriv Loss: {val_deriv_loss:.3e}')
-        end_time = time.time()
+        if val_ctrl_loss < min_ctrl_loss:
+            min_ctrl_loss = val_ctrl_loss
+            utils.save_checkpoint(nn_ctrl, ctrl_optim, epoch, f'{ctrl_ckpt_pth}/best.pt')
         
-        logging.info(f'Time taken: {end_time - start_time:.2f} seconds | Dynamic LR: {dynamic_scheduler.get_last_lr()[0]:.6e} | Ctrl LR: {ctrl_scheduler.get_last_lr()[0]:.6e}')
-        logging.info('-' * 150)
-        
-        wandb.log({
-            'train': {
-                'dynamic_loss': train_dynamic_loss,
-                'ctrl_loss': train_ctrl_loss,
-                'ctrl_mse': train_ctrl_mse,
-                'goal_loss': train_goal_loss,
-                'deriv_loss': train_deriv_loss,
-            },
-            'val': {    
-                'dynamic_loss': val_dynamic_loss,   
-                'ctrl_loss': val_ctrl_loss,
-                'ctrl_mse': val_ctrl_mse,
-                'goal_loss': val_goal_loss,
-                'deriv_loss': val_deriv_loss,
-            },
-            'time': end_time - start_time,
-            'epoch': epoch,
-            'lr': {
-                'dynamic': dynamic_scheduler.get_last_lr()[0],
-                'ctrl': ctrl_scheduler.get_last_lr()[0],
-            },
-        })
-        
-        # save models
-        utils.save_checkpoint(nn_dynamic, dynamic_optim, epoch, f'{ckpt_pth}/inverted_pendulum_nn_demo-epoch{epoch}.pt')
-        utils.save_checkpoint(nn_ctrl, ctrl_optim, epoch, f'{ckpt_pth}/inverted_pendulum_nn_demo-epoch{epoch}.pt')
-        
-            
+        info_str = f'Train | Epoch {epoch:3} | Ctrl Loss: {train_ctrl_loss:.3e} | Ctrl MSE: {train_ctrl_mse:.3e} | Goal Loss: {train_goal_loss:.3e} | Deriv Loss: {train_deriv_loss:.3e}'
+        logging.info(f'Train | Epoch {epoch:3} | Ctrl Loss: {train_ctrl_loss:.3e} | Ctrl MSE: {train_ctrl_mse:.3e} | Goal Loss: {train_goal_loss:.3e} | Deriv Loss: {train_deriv_loss:.3e}')
+        logging.info(f'Val   | Epoch {epoch:3} | Ctrl Loss: {val_ctrl_loss:.3e} | Ctrl MSE: {val_ctrl_mse:.3e} | Goal Loss: {val_goal_loss:.3e} | Deriv Loss: {val_deriv_loss:.3e}')
+        logging.info('-' * len(info_str))
