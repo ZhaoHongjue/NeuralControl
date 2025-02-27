@@ -4,7 +4,7 @@ Email:  hongjue2@illinois.edu
 Date:   02/26/2025
 '''
 
-import sys, os, argparse, time, logging
+import sys, os, argparse, time, logging, wandb
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 logging.basicConfig(level = logging.INFO)
@@ -13,9 +13,11 @@ logger = logging.getLogger(__name__)
 import torch, numpy as np
 from torch import nn, Tensor, FloatTensor
 from torch.optim import Optimizer, Adam
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn import functional as F
 from lightning.fabric import Fabric
 from torch.utils.data import DataLoader
+
 from systems import InvertedPendulum
 from controllers import ConstantController
 from models import MLP, QuadNN
@@ -89,6 +91,7 @@ def get_dataloaders(dynamic, controller, args):
 def train_dynamic(
     nn_dynamic: NNDynamic,
     dynamic_optim: Optimizer,
+    dynamic_scheduler: CosineAnnealingLR,
     train_loader: DataLoader,
     fabric: Fabric,
 ):
@@ -98,6 +101,7 @@ def train_dynamic(
         loss = F.mse_loss(pred_next_xs, next_xs)
         fabric.backward(loss)
         dynamic_optim.step()
+        dynamic_scheduler.step()
         dynamic_loss_lst.append(loss.item())
     return np.mean(dynamic_loss_lst)
 
@@ -107,6 +111,7 @@ def train_ctrl(
     nn_ctrl: NNCertifCtrl,
     goal_point: Tensor,
     ctrl_optim: Optimizer,
+    ctrl_scheduler: CosineAnnealingLR,
     train_loader: DataLoader,
     fabric: Fabric,
 ):
@@ -129,7 +134,8 @@ def train_ctrl(
         ctrl_optim.zero_grad()
         fabric.backward(ctrl_loss)
         ctrl_optim.step()
-    
+        ctrl_scheduler.step()
+        
     ctrl_loss = np.mean(ctrl_loss_lst)
     ctrl_mse = np.mean(ctrl_mse_lst)
     goal_loss = np.mean(goal_loss_lst)
@@ -184,8 +190,10 @@ if __name__ == '__main__':
     args = parse_args()
     ckpt_pth = f'{os.path.dirname(SCRIPT_DIR)}/checkpoints'
     os.makedirs(ckpt_pth, exist_ok = True)
-    utils.print_args_table(args)
+    utils.info_args_table(args)
     utils.init_seed(args.seed)
+    
+    wandb.init(project = 'inverted_pendulum_nn_demo', config = vars(args))
     
     # Initialize system, controller and fabric
     dynamic = InvertedPendulum()
@@ -207,8 +215,10 @@ if __name__ == '__main__':
     nn_ctrl = NNCertifCtrl(policy_nn, lyap_nn, args.lamb)
     
     # Initialize Optimizers
-    dynamic_optim: Optimizer = Adam(nn_dynamic.parameters(), lr = args.lr, weight_decay = args.weight_decay)
+    dynamic_optim: Optimizer = Adam(nn_dynamic.parameters(), lr = args.lr, weight_decay = args.weight_decay) # 
+    dynamic_scheduler = CosineAnnealingLR(dynamic_optim, T_max = args.n_epochs, eta_min = 1e-6)
     ctrl_optim: Optimizer = Adam(nn_ctrl.parameters(), lr = args.lr, weight_decay = args.weight_decay)
+    ctrl_scheduler = CosineAnnealingLR(ctrl_optim, T_max = args.n_epochs, eta_min = 1e-6)
     
     nn_dynamic, dynamic_optim = fabric.setup(nn_dynamic, dynamic_optim)
     nn_ctrl, ctrl_optim = fabric.setup(nn_ctrl, ctrl_optim)
@@ -217,22 +227,45 @@ if __name__ == '__main__':
     for epoch in range(args.n_epochs):
         # train models
         start_time = time.time()
-        train_dynamic_loss = train_dynamic(nn_dynamic, dynamic_optim, train_loader, fabric)
+        train_dynamic_loss = train_dynamic(nn_dynamic, dynamic_optim, dynamic_scheduler, train_loader, fabric)
         train_ctrl_loss, train_ctrl_mse, train_goal_loss, train_deriv_loss = train_ctrl(
-            nn_dynamic, nn_ctrl, dynamic.goal_point, ctrl_optim, train_loader, fabric
+            nn_dynamic, nn_ctrl, dynamic.goal_point, ctrl_optim, ctrl_scheduler, train_loader, fabric
         )
-        logging.info(f' Train | Epoch {epoch:3} | Dynamic Loss: {train_dynamic_loss:.3e} | Ctrl Loss: {train_ctrl_loss:.3e} | Ctrl MSE: {train_ctrl_mse:.3e} | Goal Loss: {train_goal_loss:.3e} | Deriv Loss: {train_deriv_loss:.3e}')
+        logging.info(f'Train | Epoch {epoch:3} | Dynamic Loss: {train_dynamic_loss:.3e} | Ctrl Loss: {train_ctrl_loss:.3e} | Ctrl MSE: {train_ctrl_mse:.3e} | Goal Loss: {train_goal_loss:.3e} | Deriv Loss: {train_deriv_loss:.3e}')
         
         # validate models
         val_dynamic_loss = validate_dynamic(nn_dynamic, val_loader)
         val_ctrl_loss, val_ctrl_mse, val_goal_loss, val_deriv_loss = validate_ctrl(
             nn_dynamic, nn_ctrl, dynamic.goal_point, val_loader
         )
-        logging.info(f' Val   | Epoch {epoch:3} | Dynamic Loss: {val_dynamic_loss:.3e} | Ctrl Loss: {val_ctrl_loss:.3e} | Ctrl MSE: {val_ctrl_mse:.3e} | Goal Loss: {val_goal_loss:.3e} | Deriv Loss: {val_deriv_loss:.3e}')
+        logging.info(f'Val   | Epoch {epoch:3} | Dynamic Loss: {val_dynamic_loss:.3e} | Ctrl Loss: {val_ctrl_loss:.3e} | Ctrl MSE: {val_ctrl_mse:.3e} | Goal Loss: {val_goal_loss:.3e} | Deriv Loss: {val_deriv_loss:.3e}')
         end_time = time.time()
         
-        logging.info(f' Time taken: {end_time - start_time:.2f} seconds')
+        logging.info(f'Time taken: {end_time - start_time:.2f} seconds | Dynamic LR: {dynamic_scheduler.get_last_lr()[0]:.6e} | Ctrl LR: {ctrl_scheduler.get_last_lr()[0]:.6e}')
         logging.info('-' * 150)
+        
+        wandb.log({
+            'train': {
+                'dynamic_loss': train_dynamic_loss,
+                'ctrl_loss': train_ctrl_loss,
+                'ctrl_mse': train_ctrl_mse,
+                'goal_loss': train_goal_loss,
+                'deriv_loss': train_deriv_loss,
+            },
+            'val': {    
+                'dynamic_loss': val_dynamic_loss,   
+                'ctrl_loss': val_ctrl_loss,
+                'ctrl_mse': val_ctrl_mse,
+                'goal_loss': val_goal_loss,
+                'deriv_loss': val_deriv_loss,
+            },
+            'time': end_time - start_time,
+            'epoch': epoch,
+            'lr': {
+                'dynamic': dynamic_scheduler.get_last_lr()[0],
+                'ctrl': ctrl_scheduler.get_last_lr()[0],
+            },
+        })
         
         # save models
         utils.save_checkpoint(nn_dynamic, dynamic_optim, epoch, f'{ckpt_pth}/inverted_pendulum_nn_demo-epoch{epoch}.pt')
