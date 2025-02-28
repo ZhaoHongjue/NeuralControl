@@ -8,6 +8,7 @@ wandb
 shells
 *logs*
 *checkpoints*
+figures
 
 *test*
 *outputs*

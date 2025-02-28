@@ -4,24 +4,14 @@ Email:  hongjue2@illinois.edu
 Date:   02/26/2025
 '''
 
-import sys, os, argparse, time, logging, wandb
+import sys, os, argparse, logging
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
 
-import torch, numpy as np
-from torch import nn, Tensor, FloatTensor
-from torch.optim import Optimizer, Adam
-from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.nn import functional as F
-from lightning.fabric import Fabric
-from torch.utils.data import DataLoader
-
 from systems import InvertedPendulum
-from controllers import Controller, ConstantController
-from models import MLP, QuadMLP, QuadGoalMLP
-from data import TrajDataModule
+from controllers import ConstantController
 from engine import InvPend_CLF_Trainer
 import utils, utils.loss
 
@@ -38,7 +28,11 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=1000)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
+    
     # Model Settings
+    parser.add_argument('--ctrl_type', type=str, default='LimitMLP')
+    parser.add_argument('--lyap_type', type=str, default='QuadGoalMLP')
+    
     parser.add_argument('--hidden_size', type=int, default=256)
     parser.add_argument('--layer_num', type=int, default=3)
     parser.add_argument('--lyap_mlp_out', type=int, default=32)
@@ -57,5 +51,5 @@ if __name__ == '__main__':
     
     dynamic = InvertedPendulum()
     nominal_ctrl = ConstantController(dynamic)
-    trainer = InvPend_CLF_Trainer(dynamic, nominal_ctrl, args, ckpt_pth = './checkpoints-test')
+    trainer = InvPend_CLF_Trainer(dynamic, nominal_ctrl, args, ckpt_pth = './checkpoints')
     trainer.train()

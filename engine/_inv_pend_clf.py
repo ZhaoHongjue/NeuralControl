@@ -1,20 +1,17 @@
-import sys, os, argparse, time, logging, wandb
+import os, argparse, logging
 logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
 
 import torch, numpy as np
-from torch import nn, Tensor, FloatTensor
-from torch.optim import Optimizer, Adam
+from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn import functional as F
 from lightning.fabric import Fabric
-from lightning.fabric.loggers import CSVLogger
-from torch.utils.data import DataLoader
 
 from systems import InvertedPendulum
-from controllers import Controller, ConstantController
+from controllers import Controller
 from certificates import NNLyapunov
-from models import MLP, QuadMLP, QuadGoalMLP
+from models import MLP, LimitMLP
 from data import TrajDataModule
 import utils
 from utils.loss import LyapNNLoss
@@ -28,19 +25,20 @@ class InvPend_CLF_Trainer:
         args: argparse.Namespace,
         ckpt_pth: str = './checkpoints',
     ):
+        utils.info_args_table(args)
         self.dynamic, self.nominal_controller = dynamic, nominal_controller
         self.args = args
         
         self.ckpt_pth = ckpt_pth
-        self.lyap_ckpt_pth = f'{ckpt_pth}/inv_pend_lyap-lamb{args.lamb}'
-        self.ctrl_ckpt_pth = f'{ckpt_pth}/inv_pend_ctrl-lamb{args.lamb}'
+        self.lyap_ckpt_pth = f'{ckpt_pth}/inv_pend_lyap-lamb{args.lamb}/{args.ctrl_type}-{args.lyap_type}'
+        self.ctrl_ckpt_pth = f'{ckpt_pth}/inv_pend_ctrl-lamb{args.lamb}/{args.ctrl_type}-{args.lyap_type}'
         os.makedirs(self.lyap_ckpt_pth, exist_ok = True)
         os.makedirs(self.ctrl_ckpt_pth, exist_ok = True)
         
         self.fabric = Fabric(accelerator = 'cuda', devices = [args.cuda,],)
         
         self.nn_ctrl, self.lyapunov = self.create_models()
-        self.ctrl_mat = FloatTensor(([[0.0], [1.0]]))
+        self.ctrl_mat = torch.eye(self.dynamic.n_dim) # FloatTensor(([[0.0], [1.0]]))
         
         self.ctrl_optim = Adam(self.nn_ctrl.parameters(), lr = args.lr, weight_decay = args.weight_decay)
         self.ctrl_scheduler = CosineAnnealingLR(self.ctrl_optim, args.n_epochs, eta_min = 0.1 * args.lr)
@@ -56,6 +54,7 @@ class InvPend_CLF_Trainer:
         
         self.nn_ctrl: MLP
         self.lyapunov: NNLyapunov
+    
     
     def train(self):
         best_epoch, min_val_loss = 0, float('inf')
@@ -75,6 +74,7 @@ class InvPend_CLF_Trainer:
             if epoch % 100 == 0:
                 torch.save(self.nn_ctrl.state_dict(), f'{self.ctrl_ckpt_pth}/epoch{epoch}.pt')
                 torch.save(self.lyapunov.state_dict(), f'{self.lyap_ckpt_pth}/epoch{epoch}.pt')
+        
         
     def train_step(self):
         total_loss_lst, ctrl_mse_lst, goal_loss_lst = [], [], []
@@ -112,6 +112,7 @@ class InvPend_CLF_Trainer:
         
         return ctrl_mse, goal_loss, deriv_num_loss, deriv_ana_loss, deriv_diff_loss, total_loss
     
+    
     @torch.no_grad()
     def validate_step(self):
         total_loss_lst, ctrl_mse_lst, goal_loss_lst = [], [], []
@@ -141,19 +142,36 @@ class InvPend_CLF_Trainer:
         
         return ctrl_mse, goal_loss, deriv_num_loss, deriv_ana_loss, deriv_diff_loss, total_loss
     
+    
     def create_models(self):
         n_dim, n_ctrl = self.dynamic.n_dim, self.dynamic.n_control
-        ctrl = MLP(n_dim, n_ctrl, **vars(self.args))
-        lyapunov = NNLyapunov(
-            self.dynamic, self.nominal_controller, self.args.lamb,
-            nn_type = 'QuadGoalMLP',
-            nn_kwargs = {
-                'mlp_output_size': self.args.lyap_mlp_out,
-                'hidden_size': self.args.hidden_size,
-                'layer_num': self.args.layer_num,
-                'activation': self.args.activation,
-            },
-        )
+        if self.args.ctrl_type == 'LimitMLP':
+            l_lim, u_lim = self.dynamic.control_limits
+            ctrl = LimitMLP(n_dim, n_dim, l_lim, u_lim, **vars(self.args))
+        elif self.args.ctrl_type == 'MLP':
+            ctrl = MLP(n_dim, n_dim, **vars(self.args))
+        else:
+            raise ValueError(f'Invalid controller type: {self.args.ctrl_type}')
+        
+        lyap_kwargs = {
+            'mlp_output_size': self.args.lyap_mlp_out,
+            'hidden_size': self.args.hidden_size,
+            'layer_num': self.args.layer_num,
+            'activation': self.args.activation,
+        }
+        if self.args.lyap_type == 'QuadGoalMLP':
+            lyapunov = NNLyapunov(
+                self.dynamic, self.nominal_controller, self.args.lamb,
+                nn_type = 'QuadGoalMLP', nn_kwargs = lyap_kwargs
+            )
+        elif self.args.lyap_type == 'QuadMLP':
+            lyapunov = NNLyapunov(
+                self.dynamic, self.nominal_controller, self.args.lamb,
+                nn_type = 'QuadMLP', nn_kwargs = lyap_kwargs
+            )
+        else:
+            raise ValueError(f'Invalid Lyapunov type: {self.args.lyap_type}')
+        
         return ctrl, lyapunov
     
     
