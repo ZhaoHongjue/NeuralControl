@@ -38,7 +38,7 @@ class InvPend_CLF_Trainer:
         self.fabric = Fabric(accelerator = 'cuda', devices = [args.cuda,],)
         
         self.nn_ctrl, self.lyapunov = self.create_models()
-        self.ctrl_mat = torch.eye(self.dynamic.n_dim) # FloatTensor(([[0.0], [1.0]]))
+        self.ctrl_mat = torch.FloatTensor(([[0.0], [1.0]])) # torch.eye(self.dynamic.n_dim) # 
         
         self.ctrl_optim = Adam(self.nn_ctrl.parameters(), lr = args.lr, weight_decay = args.weight_decay)
         self.ctrl_scheduler = CosineAnnealingLR(self.ctrl_optim, args.n_epochs, eta_min = 0.1 * args.lr)
@@ -147,9 +147,11 @@ class InvPend_CLF_Trainer:
         n_dim, n_ctrl = self.dynamic.n_dim, self.dynamic.n_control
         if self.args.ctrl_type == 'LimitMLP':
             l_lim, u_lim = self.dynamic.control_limits
-            ctrl = LimitMLP(n_dim, n_dim, l_lim, u_lim, **vars(self.args))
+            # ctrl = LimitMLP(n_dim, n_dim, l_lim, u_lim, **vars(self.args))
+            ctrl = LimitMLP(n_dim, n_ctrl, l_lim, u_lim, **vars(self.args))
         elif self.args.ctrl_type == 'MLP':
-            ctrl = MLP(n_dim, n_dim, **vars(self.args))
+            # ctrl = MLP(n_dim, n_dim, **vars(self.args))
+            ctrl = MLP(n_dim, n_ctrl, **vars(self.args))
         else:
             raise ValueError(f'Invalid controller type: {self.args.ctrl_type}')
         
