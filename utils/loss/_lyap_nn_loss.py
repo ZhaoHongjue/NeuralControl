@@ -49,6 +49,6 @@ class LyapNNLoss:
         deriv_ana_loss = F.relu(dot_vs_ana + self.lamb * curr_vs).mean()
         
         # Diff Loss
-        diff_loss = F.mse_loss(deriv_num_loss, deriv_ana_loss).mean()
+        diff_loss = F.mse_loss(dot_vs_ana, dot_vs_num).mean()
         
         return deriv_num_loss, deriv_ana_loss, diff_loss

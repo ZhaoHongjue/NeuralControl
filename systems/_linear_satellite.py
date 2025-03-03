@@ -93,4 +93,11 @@ class LinearSatellite(CtrlAffSys):
         elif type == 'goal'  : return distance < 0.25 # torch.ones(x.shape[0], dtype = torch.bool)
         else: raise ValueError('Invalid mask type')
         
-    
+    def get_safe_flags(self, x: Tensor) -> Tensor:
+        safe_mask = self.get_mask(x, type = 'safe')
+        unsafe_mask = self.get_mask(x, type = 'unsafe')
+
+        flags = torch.zeros(x.shape[0]).to(x.device)
+        flags[safe_mask] = 1
+        flags[unsafe_mask] = -1
+        return flags
