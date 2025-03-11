@@ -82,11 +82,14 @@ class LinSate_CBF_Trainer:
         deriv_diff_lst, deriv_num_lst, deriv_ana_lst = [], [], []
         for curr_xs, curr_us, next_xs in self.train_loader:
             # Control loss - Restrict the control to the nominal controller
-            pred_delta_us = self.nn_ctrl(curr_xs)
-            ctrl_mse = torch.linalg.norm(pred_delta_us, ord = 2, dim = -1).mean()
+            # pred_delta_us = self.nn_ctrl(curr_xs)
+            # ctrl_mse = torch.linalg.norm(pred_delta_us, ord = 2, dim = -1).mean()
+            # ctrl_mse_lst.append(ctrl_mse.item())
+            # pred_us = curr_us + pred_delta_us
+            pred_us = self.nn_ctrl(curr_xs)
+            ctrl_mse = F.mse_loss(pred_us, curr_us)
             ctrl_mse_lst.append(ctrl_mse.item())
             
-            pred_us = curr_us + pred_delta_us
             pred_next_xs = next_xs + self.args.dt * pred_us @ self.ctrl_mat.T.to(pred_us.device)
             boundary_loss, deriv_num_loss, deriv_ana_loss, diff_loss = self.loss_fn(curr_xs, pred_next_xs)
             boundary_loss_lst.append(boundary_loss.item())
