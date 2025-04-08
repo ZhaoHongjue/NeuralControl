@@ -33,6 +33,15 @@ class Certif_Ctrl_Trainer:
         self.nn_ctrl, self.certif = self.create_models()
         self.loss_fn = self.create_loss_fn()
         
+        if self.args.clbf:
+            assert self.args.certif_type == 'barrier'
+            nominal_ctrl_optim = Adam(self.nn_ctrl.parameters(), lr = self.args.lr, weight_decay = self.args.weight_decay)
+            self.nn_ctrl, _, __ = utils.load_checkpoint(
+                self.nn_ctrl, nominal_ctrl_optim, 
+                f'./checkpoints/{self.args.dynamic_type}-{self.args.nominal_type}-lyapunov-lamb1.0/ctrl/best_ctrl.pt'
+            )
+            self.nominal_ctrl = lambda x: self.nn_ctrl(x).detach().cpu()
+        
         self.ctrl_optim = Adam(self.nn_ctrl.parameters(), lr = self.args.lr, weight_decay = self.args.weight_decay)
         self.certif_optim = Adam(self.certif.parameters(), lr = self.args.lr, weight_decay = self.args.weight_decay)
         
@@ -188,3 +197,7 @@ class Certif_Ctrl_Trainer:
         return self.fabric.setup_dataloaders(
             dm.train_dataloader(), dm.val_dataloader()
         )
+        
+    def load_ckpt(self):
+        self.nn_ctrl, self.ctrl_optim, _ = utils.load_checkpoint(self.nn_ctrl, self.ctrl_optim, f'{self.ctrl_ckpt_pth}/best_ctrl.pt')
+        self.certif, self.certif_optim, _ = utils.load_checkpoint(self.certif, self.certif_optim, f'{self.certif_ckpt_pth}/best_{self.args.certif_type}.pt')

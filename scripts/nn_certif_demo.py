@@ -42,6 +42,7 @@ def parse_args():
     
     parser.add_argument('--cuda', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--clbf', type=bool, default=False)
     return parser.parse_args()
 
 
@@ -51,6 +52,8 @@ if __name__ == '__main__':
     dynamic = eval(args.dynamic_type)()
     nominal_ctrl = eval(args.nominal_type)(dynamic)
     proj_name = f'{args.dynamic_type}-{args.nominal_type}-{args.certif_type}-lamb{args.lamb}'
+    if args.clbf:
+        proj_name = f'{proj_name}-clbf' 
     trainer = Certif_Ctrl_Trainer(dynamic, nominal_ctrl, args, ckpt_pth = f'./checkpoints/{proj_name}')
     trainer.train()
     

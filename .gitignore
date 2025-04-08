@@ -1,6 +1,9 @@
 *.out
 *.txt
 *.csv
+*.svg
+*.png
+*.pdf
 
 __pycache__
 test-notebooks

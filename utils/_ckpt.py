@@ -23,7 +23,7 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer, 
     path: str
 ) -> tuple[torch.nn.Module, torch.optim.Optimizer, int]:
-    checkpoint = torch.load(path, weights_only = False)
+    checkpoint = torch.load(path, weights_only = False, map_location = 'cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     return model, optimizer, checkpoint['epoch']
